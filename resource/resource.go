@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"path"
+	"regexp"
 	"strings"
 )
 
@@ -16,6 +17,7 @@ const (
 )
 
 const (
+	nameProp      = "name"
 	formatProp    = "format"
 	mediaTypeProp = "mediatype"
 	pathProp      = "path"
@@ -28,6 +30,7 @@ type Resource struct {
 	Descriptor map[string]interface{} `json:"-"`
 	Path       []string
 	Data       interface{}
+	Name       string
 }
 
 // New creates a new Resource from the passed-in descriptor.
@@ -35,7 +38,12 @@ func New(d map[string]interface{}) (*Resource, error) {
 	if d[pathProp] != nil && d[dataProp] != nil {
 		return nil, fmt.Errorf("either path or data properties MUST be set (only one of them). Descriptor:%v", d)
 	}
+	var err error
 	r := Resource{}
+	r.Name, err = parseName(d[nameProp])
+	if err != nil {
+		return nil, err
+	}
 	pathI := d[pathProp]
 	if pathI != nil {
 		p, err := parsePath(pathI, d)
@@ -54,8 +62,23 @@ func New(d map[string]interface{}) (*Resource, error) {
 		r.Data = data
 		return &r, nil
 	}
-
 	return nil, fmt.Errorf("either path or data properties MUST be set  (only one of them). Descriptor:%v", d)
+}
+
+var nameRegexp = regexp.MustCompile(`^[a-z\._]+$`)
+
+func parseName(name interface{}) (string, error) {
+	if name == nil {
+		return "", fmt.Errorf("resource MUST contain a name property. ")
+	}
+	n, ok := name.(string)
+	if !ok {
+		return "", fmt.Errorf("resource names MUST be strings: %v", name)
+	}
+	if !nameRegexp.MatchString(n) {
+		return "", fmt.Errorf("resource names MUST consist only of lowercase alphanumeric characters plus \".\", \"-\" and \"_\":%v", n)
+	}
+	return n, nil
 }
 
 func parseData(dataI interface{}, d map[string]interface{}) (interface{}, error) {
