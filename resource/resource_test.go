@@ -19,6 +19,7 @@ func TestNew_error(t *testing.T) {
 		{"AbsolutePath", map[string]interface{}{"path": "/bar"}},
 		{"InvalidRelativePath", map[string]interface{}{"path": "../bar"}},
 		{"InvalidSchemeURL", map[string]interface{}{"path": "myscheme://bar"}},
+		{"MixedPaths", map[string]interface{}{"path": []string{"https://bar", "bar"}}},
 	}
 	for _, d := range data {
 		t.Run(d.desc, func(t *testing.T) {
@@ -43,9 +44,16 @@ func TestNew_filePath(t *testing.T) {
 	is.True("data/foo.csv" == r.Path[0])
 }
 
-func TestNew_slicePath(t *testing.T) {
+func TestNew_slicePathURL(t *testing.T) {
 	is := is.New(t)
-	r, err := New(map[string]interface{}{"path": []string{"data/foo.csv", "data/bar.csv"}})
+	r, err := New(map[string]interface{}{"path": []string{"https://foo.csv", "http://data/bar.csv"}})
 	is.NoErr(err)
-	is.True(reflect.DeepEqual([]string{"data/foo.csv", "data/bar.csv"}, r.Path))
+	is.True(reflect.DeepEqual([]string{"https://foo.csv", "http://data/bar.csv"}, r.Path))
+}
+
+func TestNew_slicePathPAth(t *testing.T) {
+	is := is.New(t)
+	r, err := New(map[string]interface{}{"path": []string{"https://foo.csv", "http://data/bar.csv"}})
+	is.NoErr(err)
+	is.True(reflect.DeepEqual([]string{"https://foo.csv", "http://data/bar.csv"}, r.Path))
 }

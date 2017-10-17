@@ -8,6 +8,13 @@ import (
 	"strings"
 )
 
+type pathType byte
+
+const (
+	urlPath      pathType = 0
+	relativePath pathType = 1
+)
+
 const (
 	pathProp = "path"
 	dataProp = "data"
@@ -36,21 +43,27 @@ func New(d map[string]interface{}) (*Resource, error) {
 	case []string:
 		r.Path = append(r.Path, pathI.([]string)...)
 	}
-	for _, p := range r.Path {
+	var lastType, currType pathType
+	for index, p := range r.Path {
+		// Check if it is a relative path.
 		u, err := url.Parse(p)
-		if err == nil {
-			if u.Scheme != "" {
-				if u.Scheme != "" && u.Scheme != "http" && u.Scheme != "https" {
-					return nil, fmt.Errorf("URLs MUST be fully qualified. MUST be using either http or https scheme. Descriptor:%v", d)
-				}
-				continue // valid URL path.
+		if err != nil || u.Scheme == "" {
+			if path.IsAbs(p) || strings.HasPrefix(path.Clean(p), "..") {
+				return nil, fmt.Errorf("absolute paths (/) and relative parent paths (../) MUST NOT be used. Descriptor:%v", d)
 			}
+			currType = relativePath
+		} else { // Check if it is a valid URL.
+			if u.Scheme != "http" && u.Scheme != "https" {
+				return nil, fmt.Errorf("URLs MUST be fully qualified. MUST be using either http or https scheme. Descriptor:%v", d)
+			}
+			currType = urlPath
 		}
-		if path.IsAbs(p) || strings.HasPrefix(path.Clean(p), "..") {
-			return nil, fmt.Errorf("absolute paths (/) and relative parent paths (../) MUST NOT be used. Descriptor:%v", d)
+		if index > 0 {
+			if currType != lastType {
+				return nil, fmt.Errorf("it is NOT permitted to mix fully qualified URLs and relative paths in a single resource. Descriptor:%v", d)
+			}
+			lastType = currType
 		}
 	}
-	// TODO: implement the following restriction:
-	// It is NOT permitted to mix fully qualified URLs and relative paths in a path array: strings MUST either all be relative paths or all URLs.
 	return &r, nil
 }
