@@ -16,38 +16,79 @@ const (
 )
 
 const (
-	pathProp = "path"
-	dataProp = "data"
+	formatProp    = "format"
+	mediaTypeProp = "mediatype"
+	pathProp      = "path"
+	dataProp      = "data"
+	jsonFormat    = "json"
 )
 
 // Resource describes a data resource such as an individual file or table.
 type Resource struct {
 	Descriptor map[string]interface{} `json:"-"`
 	Path       []string
+	Data       interface{}
 }
 
 // New creates a new Resource from the passed-in descriptor.
 func New(d map[string]interface{}) (*Resource, error) {
-	if d[pathProp] == nil && d[dataProp] == nil {
-		return nil, fmt.Errorf("either path or data properties MUST be set  (only one of them). Descriptor:%v", d)
-	}
 	if d[pathProp] != nil && d[dataProp] != nil {
 		return nil, fmt.Errorf("either path or data properties MUST be set (only one of them). Descriptor:%v", d)
 	}
 	r := Resource{}
 	pathI := d[pathProp]
+	if pathI != nil {
+		p, err := parsePath(pathI, d)
+		if err != nil {
+			return nil, err
+		}
+		r.Path = append(r.Path, p...)
+		return &r, nil
+	}
+	dataI := d[dataProp]
+	if dataI != nil {
+		data, err := parseData(dataI, d)
+		if err != nil {
+			return nil, err
+		}
+		r.Data = data
+		return &r, nil
+	}
+
+	return nil, fmt.Errorf("either path or data properties MUST be set  (only one of them). Descriptor:%v", d)
+}
+
+func parseData(dataI interface{}, d map[string]interface{}) (interface{}, error) {
+	if dataI != nil {
+		switch dataI.(type) {
+		case string:
+			if d[formatProp] == nil && d[mediaTypeProp] == nil {
+				return nil, fmt.Errorf("format or mediatype properties MUST be provided for JSON data strings. Descriptor:%v", d)
+			}
+			return dataI, nil
+		case []map[string]interface{}, map[string]interface{}:
+			return dataI, nil
+		}
+	}
+	return nil, fmt.Errorf("data property must be either a JSON array/object OR a JSON string. Descriptor:%v", d)
+}
+
+func parsePath(pathI interface{}, d map[string]interface{}) ([]string, error) {
+	var returned []string
+	// Parse.
 	switch pathI.(type) {
 	default:
 		return nil, fmt.Errorf("path MUST be a string or an array of strings. Descriptor:%v", d)
 	case string:
 		if p, ok := pathI.(string); ok {
-			r.Path = append(r.Path, p)
+			returned = append(returned, p)
 		}
 	case []string:
-		r.Path = append(r.Path, pathI.([]string)...)
+		returned = append(returned, pathI.([]string)...)
 	}
 	var lastType, currType pathType
-	for index, p := range r.Path {
+	// Validation.
+	for index, p := range returned {
 		// Check if it is a relative path.
 		u, err := url.Parse(p)
 		if err != nil || u.Scheme == "" {
@@ -68,5 +109,5 @@ func New(d map[string]interface{}) (*Resource, error) {
 			lastType = currType
 		}
 	}
-	return &r, nil
+	return returned, nil
 }
