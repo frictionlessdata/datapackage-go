@@ -29,7 +29,10 @@ type Resource struct {
 // New creates a new Resource from the passed-in descriptor.
 func New(d map[string]interface{}) (*Resource, error) {
 	if d[pathProp] == nil && d[dataProp] == nil {
-		return nil, fmt.Errorf("either path or data properties MUST be set to strings. Descriptor:%v", d)
+		return nil, fmt.Errorf("either path or data properties MUST be set  (only one of them). Descriptor:%v", d)
+	}
+	if d[pathProp] != nil && d[dataProp] != nil {
+		return nil, fmt.Errorf("either path or data properties MUST be set (only one of them). Descriptor:%v", d)
 	}
 	r := Resource{}
 	pathI := d[pathProp]

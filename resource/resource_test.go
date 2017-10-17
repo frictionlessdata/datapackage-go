@@ -20,6 +20,8 @@ func TestNew_error(t *testing.T) {
 		{"InvalidRelativePath", map[string]interface{}{"path": "../bar"}},
 		{"InvalidSchemeURL", map[string]interface{}{"path": "myscheme://bar"}},
 		{"MixedPaths", map[string]interface{}{"path": []string{"https://bar", "bar"}}},
+		{"InvalidJSONStringData", map[string]interface{}{"data": "invalidJSONObjectString"}},
+		{"PathAndData", map[string]interface{}{"data": "foo", "path": "foo"}},
 	}
 	for _, d := range data {
 		t.Run(d.desc, func(t *testing.T) {
@@ -51,7 +53,7 @@ func TestNew_slicePathURL(t *testing.T) {
 	is.True(reflect.DeepEqual([]string{"https://foo.csv", "http://data/bar.csv"}, r.Path))
 }
 
-func TestNew_slicePathPAth(t *testing.T) {
+func TestNew_slicePathPath(t *testing.T) {
 	is := is.New(t)
 	r, err := New(map[string]interface{}{"path": []string{"https://foo.csv", "http://data/bar.csv"}})
 	is.NoErr(err)
