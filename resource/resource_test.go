@@ -26,12 +26,33 @@ func TestNew_error(t *testing.T) {
 		{"InvalidChar", map[string]interface{}{"name": "u*p", "path": "http://url.com"}},
 		{"NameWithSpace", map[string]interface{}{"name": "u p", "path": "http://url.com"}},
 		{"NameIsNotString", map[string]interface{}{"name": 1, "path": "http://url.com"}},
+		{"SchemaAsInt", map[string]interface{}{"name": 1, "schema": 1, "path": "http://url.com"}},
 	}
 	for _, d := range data {
 		t.Run(d.desc, func(t *testing.T) {
 			is := is.New(t)
 			_, err := New(d.d)
 			is.True(err != nil)
+		})
+	}
+}
+
+func TestNew_schema(t *testing.T) {
+	data := []struct {
+		testDescription string
+		descriptor      map[string]interface{}
+		want            interface{}
+	}{
+		{"StringSchemaPath", map[string]interface{}{"name": "up", "schema": "schema.json", "path": "foo.csv"}, "schema.json"},
+		{"URLSchemaPath", map[string]interface{}{"name": "up", "schema": "http://schema.json", "path": "foo.csv"}, "http://schema.json"},
+		{"ObjectSchema", map[string]interface{}{"name": "up", "schema": map[string]interface{}{"boo": "bez"}, "path": "foo.csv"}, map[string]interface{}{"boo": "bez"}},
+	}
+	for _, d := range data {
+		t.Run(d.testDescription, func(t *testing.T) {
+			is := is.New(t)
+			r, err := New(d.descriptor)
+			is.NoErr(err)
+			is.True(reflect.DeepEqual(d.want, r.Descriptor["schema"]))
 		})
 	}
 }

@@ -17,6 +17,7 @@ const (
 )
 
 const (
+	schemaProp    = "schema"
 	nameProp      = "name"
 	formatProp    = "format"
 	mediaTypeProp = "mediatype"
@@ -39,9 +40,14 @@ func New(d map[string]interface{}) (*Resource, error) {
 		return nil, fmt.Errorf("either path or data properties MUST be set (only one of them). Descriptor:%v", d)
 	}
 	var err error
-	r := Resource{}
+	r := Resource{
+		Descriptor: d,
+	}
 	r.Name, err = parseName(d[nameProp])
 	if err != nil {
+		return nil, err
+	}
+	if err := validateSchema(d[schemaProp], d); err != nil {
 		return nil, err
 	}
 	pathI := d[pathProp]
@@ -63,6 +69,19 @@ func New(d map[string]interface{}) (*Resource, error) {
 		return &r, nil
 	}
 	return nil, fmt.Errorf("either path or data properties MUST be set  (only one of them). Descriptor:%v", d)
+}
+
+func validateSchema(schI interface{}, d map[string]interface{}) error {
+	switch schI.(type) {
+	case string:
+		if _, err := parsePath(schI, d); err != nil {
+			return err
+		}
+		return nil
+	case map[string]interface{}:
+		return nil
+	}
+	return fmt.Errorf("resource schema MUST be a string or a JSON schema object: %v", schI)
 }
 
 var nameRegexp = regexp.MustCompile(`^[a-z\._]+$`)
