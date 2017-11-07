@@ -7,21 +7,9 @@
   packages = ["."]
   revision = "c0323ceb4e996e4a8795670d1fb6f60e65b82fd2"
 
-[[projects]]
-  branch = "master"
-  name = "github.com/spf13/afero"
-  packages = [".","mem"]
-  revision = "e67d870304c4bca21331b02f414f970df13aa694"
-
-[[projects]]
-  branch = "master"
-  name = "golang.org/x/text"
-  packages = ["internal/gen","internal/triegen","internal/ucd","transform","unicode/cldr","unicode/norm"]
-  revision = "c01e4764d870b77f8abe5096ee19ad20d80e8075"
-
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "ab85a114fead881ec51882e7e79eccd65c3824047e0463c1114a1b9853b11001"
+  inputs-digest = "778735bf71d8ad443c7ecdd8ceb59d723ffa63e2da79b89edd09c06659f8b585"
   solver-name = "gps-cdcl"
   solver-version = 1
