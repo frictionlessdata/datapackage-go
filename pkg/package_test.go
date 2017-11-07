@@ -2,10 +2,8 @@ package pkg
 
 import (
 	"fmt"
-	"testing"
-)
-import (
 	"strings"
+	"testing"
 
 	"github.com/frictionlessdata/datapackage-go/resource"
 	"github.com/matryer/is"
