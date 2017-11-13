@@ -26,7 +26,8 @@ func TestNew_error(t *testing.T) {
 		{"InvalidChar", map[string]interface{}{"name": "u*p", "path": "http://url.com"}},
 		{"NameWithSpace", map[string]interface{}{"name": "u p", "path": "http://url.com"}},
 		{"NameIsNotString", map[string]interface{}{"name": 1, "path": "http://url.com"}},
-		{"SchemaAsInt", map[string]interface{}{"name": 1, "schema": 1, "path": "http://url.com"}},
+		{"SchemaAsInt", map[string]interface{}{"name": "name", "schema": 1, "path": "http://url.com"}},
+		{"SchemaInvalidPath", map[string]interface{}{"name": "name", "schema": "/bar", "path": "http://url.com"}},
 	}
 	for _, d := range data {
 		t.Run(d.desc, func(t *testing.T) {

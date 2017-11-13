@@ -47,8 +47,11 @@ func New(d map[string]interface{}) (*Resource, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := validateSchema(d[schemaProp], d); err != nil {
-		return nil, err
+	schemaI := d[schemaProp]
+	if schemaI != nil {
+		if err := validateSchema(schemaI, d); err != nil {
+			return nil, err
+		}
 	}
 	pathI := d[pathProp]
 	if pathI != nil {
