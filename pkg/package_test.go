@@ -148,3 +148,9 @@ func TestFromReader(t *testing.T) {
 		is.True(err != nil)
 	})
 }
+
+func TestValid(t *testing.T) {
+	is := is.New(t)
+	is.True(valid(map[string]interface{}{"resources": []interface{}{map[string]interface{}{"name": "res"}}}, validResource))
+	is.True(!valid(map[string]interface{}{}, validResource))
+}

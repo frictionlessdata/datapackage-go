@@ -74,6 +74,16 @@ func (p *Package) RemoveResource(name string) {
 	p.descriptor[resourcePropName] = newResourcesDescriptor(p.resources)
 }
 
+// Valid returns true if the passed-in descriptor is valid or false, otherwise.
+func Valid(descriptor map[string]interface{}) bool {
+	return valid(descriptor, resource.New)
+}
+
+func valid(descriptor map[string]interface{}, resFactory resourceFactory) bool {
+	_, err := fromDescriptor(descriptor, resFactory)
+	return err == nil
+}
+
 func fromDescriptor(descriptor map[string]interface{}, resFactory resourceFactory) (*Package, error) {
 	r, ok := descriptor[resourcePropName]
 	if !ok {
