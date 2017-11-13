@@ -16,8 +16,8 @@ const (
 
 type resourceFactory func(map[string]interface{}) (*resource.Resource, error)
 
-// Pkg represents a https://specs.frictionlessdata.io/data-package/
-type Pkg struct {
+// Package represents a https://specs.frictionlessdata.io/data-package/
+type Package struct {
 	resources map[string]*resource.Resource
 
 	descriptor map[string]interface{}
@@ -25,12 +25,12 @@ type Pkg struct {
 }
 
 // GetResource return the resource which the passed-in name or nil if the resource is not part of the package.
-func (p *Pkg) GetResource(name string) *resource.Resource {
+func (p *Package) GetResource(name string) *resource.Resource {
 	return p.resources[name]
 }
 
 // AddResource adds a new resource to the package, changing its descriptor accordingly.
-func (p *Pkg) AddResource(d map[string]interface{}) error {
+func (p *Package) AddResource(d map[string]interface{}) error {
 	if p.resFactory == nil {
 		return fmt.Errorf("invalid resource factory. Did you mean resources.FromDescriptor?")
 	}
@@ -59,7 +59,7 @@ func (p *Pkg) AddResource(d map[string]interface{}) error {
 	return nil
 }
 
-func fromDescriptor(descriptor map[string]interface{}, resFactory resourceFactory) (*Pkg, error) {
+func fromDescriptor(descriptor map[string]interface{}, resFactory resourceFactory) (*Package, error) {
 	r, ok := descriptor[resourcePropName]
 	if !ok {
 		return nil, fmt.Errorf("resources property is required, with at least one resource")
@@ -80,7 +80,7 @@ func fromDescriptor(descriptor map[string]interface{}, resFactory resourceFactor
 		}
 		resources[r.Name] = r
 	}
-	return &Pkg{
+	return &Package{
 		resources:  resources,
 		resFactory: resFactory,
 		descriptor: descriptor,
@@ -88,11 +88,11 @@ func fromDescriptor(descriptor map[string]interface{}, resFactory resourceFactor
 }
 
 // FromDescriptor creates a data package from a json descriptor.
-func FromDescriptor(descriptor map[string]interface{}) (*Pkg, error) {
+func FromDescriptor(descriptor map[string]interface{}) (*Package, error) {
 	return fromDescriptor(descriptor, resource.New)
 }
 
-func fromReader(r io.Reader, resFactory resourceFactory) (*Pkg, error) {
+func fromReader(r io.Reader, resFactory resourceFactory) (*Package, error) {
 	b, err := ioutil.ReadAll(bufio.NewReader(r))
 	if err != nil {
 		return nil, err
@@ -105,6 +105,6 @@ func fromReader(r io.Reader, resFactory resourceFactory) (*Pkg, error) {
 }
 
 // FromReader validates and returns a data package from an io.Reader.
-func FromReader(r io.Reader) (*Pkg, error) {
+func FromReader(r io.Reader) (*Package, error) {
 	return fromReader(r, resource.New)
 }
