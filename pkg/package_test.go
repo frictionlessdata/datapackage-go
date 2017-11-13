@@ -1,6 +1,7 @@
 package pkg
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -109,6 +110,36 @@ func TestPackage_Descriptor(t *testing.T) {
 	is.NoErr(err)
 	is.Equal(p.descriptor, c)
 }
+
+func TestPackage_UnmarshalJSON(t *testing.T) {
+	t.Run("ValidJSON", func(t *testing.T) {
+		is := is.New(t)
+		var p Package
+		err := json.Unmarshal([]byte(`{"resources":[{"name":"res", "path":"foo.csv"}]}`), &p)
+		is.NoErr(err)
+		is.Equal(p.descriptor, map[string]interface{}{"resources": []interface{}{map[string]interface{}{"name": "res", "path": "foo.csv"}}})
+	})
+	t.Run("InvalidDescriptor", func(t *testing.T) {
+		is := is.New(t)
+		var p Package
+		is.True(json.Unmarshal([]byte(`{"resources":1}`), &p) != nil)
+	})
+	t.Run("InvalidJSONMap", func(t *testing.T) {
+		is := is.New(t)
+		var p Package
+		is.True(json.Unmarshal([]byte(`[]`), &p) != nil)
+	})
+}
+
+func TestPackage_MarshalJSON(t *testing.T) {
+	is := is.New(t)
+	p := Package{resFactory: validResource}
+	p.AddResource(map[string]interface{}{"name": "res", "path": "foo.csv"})
+	buf, err := json.Marshal(&p)
+	is.NoErr(err)
+	is.Equal(string(buf), `{"resources":[{"name":"res","path":"foo.csv"}]}`)
+}
+
 func TestFromDescriptor(t *testing.T) {
 	t.Run("ValidationErrors", func(t *testing.T) {
 		is := is.New(t)

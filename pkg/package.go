@@ -117,6 +117,25 @@ func cloneDescriptor(d map[string]interface{}) (map[string]interface{}, error) {
 	return c, nil
 }
 
+// MarshalJSON returns the JSON encoding of the package.
+func (p *Package) MarshalJSON() ([]byte, error) {
+	return json.Marshal(p.descriptor)
+}
+
+// UnmarshalJSON parses and validates the JSON-encoded data and stores the result in the resource descriptor.
+func (p *Package) UnmarshalJSON(b []byte) error {
+	var descriptor map[string]interface{}
+	if err := json.Unmarshal(b, &descriptor); err != nil {
+		return err
+	}
+	aux, err := FromDescriptor(descriptor)
+	if err != nil {
+		return err
+	}
+	*p = *aux
+	return nil
+}
+
 func fromDescriptor(descriptor map[string]interface{}, resFactory resourceFactory) (*Package, error) {
 	r, ok := descriptor[resourcePropName]
 	if !ok {
