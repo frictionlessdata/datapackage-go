@@ -10,7 +10,7 @@ import (
 )
 
 func validResource(d map[string]interface{}) (*resource.Resource, error) {
-	return &resource.Resource{Name: d["name"].(string)}, nil
+	return &resource.Resource{Descriptor: d, Name: d["name"].(string)}, nil
 }
 
 var invalidResource = func(map[string]interface{}) (*resource.Resource, error) { return nil, fmt.Errorf("") }
@@ -20,7 +20,8 @@ func TestPackage_GetResource(t *testing.T) {
 	in := `{"resources":[{"name":"res"}]}`
 	p, err := fromReader(strings.NewReader(in), validResource)
 	is.NoErr(err)
-	is.Equal("res", p.GetResource("res").Name)
+	is.Equal(p.GetResource("res").Name, "res")
+	is.True(p.GetResource("foooooo") == nil)
 }
 
 func TestPackage_AddResource(t *testing.T) {
@@ -31,10 +32,10 @@ func TestPackage_AddResource(t *testing.T) {
 
 		p, err := fromDescriptor(map[string]interface{}{"resources": []interface{}{r1}}, validResource)
 		is.NoErr(err)
-
 		p.AddResource(r2)
+
 		is.Equal(len(p.resources), 2)
-		is.Equal(p.resources["res2"].Name, "res2")
+		is.Equal(p.resources[1].Name, "res2")
 
 		resources := p.descriptor["resources"].([]interface{})
 		is.Equal(len(resources), 2)
@@ -53,7 +54,7 @@ func TestPackage_AddResource(t *testing.T) {
 		is.Equal(resources[0], r1)
 
 		is.Equal(len(p.resources), 1)
-		is.Equal(p.resources["res1"].Name, "res1")
+		is.Equal(p.resources[0].Name, "res1")
 	})
 	t.Run("InvalidResource", func(t *testing.T) {
 		is := is.New(t)
@@ -67,12 +68,28 @@ func TestPackage_AddResource(t *testing.T) {
 		err := p.AddResource(map[string]interface{}{"name": "res1"})
 		is.True(err != nil)
 	})
-	t.Run("InvalidResourcesSliceDescriptor", func(t *testing.T) {
+}
+
+func TestPackage_RemoveResource(t *testing.T) {
+	t.Run("ExistingName", func(t *testing.T) {
 		is := is.New(t)
-		p := Package{resFactory: validResource}
-		p.descriptor = map[string]interface{}{"resources": 1}
-		err := p.AddResource(map[string]interface{}{"name": "res1"})
-		is.True(err != nil)
+		p, err := fromDescriptor(
+			map[string]interface{}{"resources": []interface{}{
+				map[string]interface{}{"name": "res1"},
+				map[string]interface{}{"name": "res2"},
+			}},
+			validResource)
+		is.NoErr(err)
+		p.RemoveResource("res1")
+		is.Equal(len(p.descriptor), 1)
+		is.Equal(len(p.resources), 1)
+		is.Equal(p.descriptor["resources"].([]interface{})[0], p.resources[0].Descriptor)
+
+		// Remove a non-existing resource and checks if everything stays the same.
+		p.RemoveResource("res1")
+		is.Equal(len(p.descriptor), 1)
+		is.Equal(len(p.resources), 1)
+		is.Equal(p.descriptor["resources"].([]interface{})[0], p.resources[0].Descriptor)
 	})
 }
 
@@ -111,7 +128,7 @@ func TestFromDescriptor(t *testing.T) {
 			validResource,
 		)
 		is.NoErr(err)
-		is.True(p.resources["res"] != nil)
+		is.True(p.resources[0] != nil)
 
 		resources := p.descriptor["resources"].([]interface{})
 		is.Equal(len(resources), 1)

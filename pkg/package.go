@@ -18,7 +18,7 @@ type resourceFactory func(map[string]interface{}) (*resource.Resource, error)
 
 // Package represents a https://specs.frictionlessdata.io/data-package/
 type Package struct {
-	resources map[string]*resource.Resource
+	resources []*resource.Resource
 
 	descriptor map[string]interface{}
 	resFactory resourceFactory
@@ -26,10 +26,15 @@ type Package struct {
 
 // GetResource return the resource which the passed-in name or nil if the resource is not part of the package.
 func (p *Package) GetResource(name string) *resource.Resource {
-	return p.resources[name]
+	for _, r := range p.resources {
+		if r.Name == name {
+			return r
+		}
+	}
+	return nil
 }
 
-// AddResource adds a new resource to the package, changing its descriptor accordingly.
+// AddResource adds a new resource to the package, updating its descriptor accordingly.
 func (p *Package) AddResource(d map[string]interface{}) error {
 	if p.resFactory == nil {
 		return fmt.Errorf("invalid resource factory. Did you mean resources.FromDescriptor?")
@@ -38,25 +43,35 @@ func (p *Package) AddResource(d map[string]interface{}) error {
 	if err != nil {
 		return err
 	}
+	p.resources = append(p.resources, r)
 	if p.descriptor == nil {
 		p.descriptor = make(map[string]interface{})
 	}
-	if p.descriptor[resourcePropName] == nil {
-		p.descriptor[resourcePropName] = []interface{}{d}
-	} else {
-		resources, ok := p.descriptor[resourcePropName].([]interface{})
-		if !ok {
-			return fmt.Errorf("invalid descriptor resource list: %v", p.descriptor[resourcePropName])
-		}
-		resources = append(resources, d)
-		p.descriptor[resourcePropName] = resources
-	}
-	if p.resources == nil {
-		p.resources = map[string]*resource.Resource{r.Name: r}
-	} else {
-		p.resources[r.Name] = r
-	}
+	p.descriptor[resourcePropName] = newResourcesDescriptor(p.resources)
 	return nil
+}
+
+func newResourcesDescriptor(resources []*resource.Resource) []interface{} {
+	descRes := make([]interface{}, len(resources))
+	for i := range resources {
+		descRes[i] = resources[i].Descriptor
+	}
+	return descRes
+}
+
+//RemoveResource removes the resource from the package, updating its descriptor accordingly.
+func (p *Package) RemoveResource(name string) {
+	index := -1
+	for i := range p.resources {
+		if p.resources[i].Name == name {
+			index = i
+			break
+		}
+	}
+	if index != -1 {
+		p.resources = append(p.resources[:index], p.resources[:index+1]...)
+	}
+	p.descriptor[resourcePropName] = newResourcesDescriptor(p.resources)
 }
 
 func fromDescriptor(descriptor map[string]interface{}, resFactory resourceFactory) (*Package, error) {
@@ -68,8 +83,8 @@ func fromDescriptor(descriptor map[string]interface{}, resFactory resourceFactor
 	if !ok || len(rSlice) == 0 {
 		return nil, fmt.Errorf("resources property is required, with at least one resource")
 	}
-	resources := make(map[string]*resource.Resource)
-	for _, rInt := range rSlice {
+	resources := make([]*resource.Resource, len(rSlice))
+	for pos, rInt := range rSlice {
 		rDesc, ok := rInt.(map[string]interface{})
 		if !ok {
 			return nil, fmt.Errorf("resources must be a json object. got:%v", rInt)
@@ -78,7 +93,7 @@ func fromDescriptor(descriptor map[string]interface{}, resFactory resourceFactor
 		if err != nil {
 			return nil, err
 		}
-		resources[r.Name] = r
+		resources[pos] = r
 	}
 	return &Package{
 		resources:  resources,
