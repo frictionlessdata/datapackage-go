@@ -21,6 +21,7 @@ type Pkg struct {
 	resources map[string]*resource.Resource
 
 	descriptor map[string]interface{}
+	resFactory resourceFactory
 }
 
 // GetResource return the resource which the passed-in name or nil if the resource is not part of the package.
@@ -28,7 +29,37 @@ func (p *Pkg) GetResource(name string) *resource.Resource {
 	return p.resources[name]
 }
 
-func fromDescriptor(descriptor map[string]interface{}, newResource resourceFactory) (*Pkg, error) {
+// AddResource adds a new resource to the package, changing its descriptor accordingly.
+func (p *Pkg) AddResource(d map[string]interface{}) error {
+	if p.resFactory == nil {
+		return fmt.Errorf("invalid resource factory. Did you mean resources.FromDescriptor?")
+	}
+	r, err := p.resFactory(d)
+	if err != nil {
+		return err
+	}
+	if p.descriptor == nil {
+		p.descriptor = make(map[string]interface{})
+	}
+	if p.descriptor[resourcePropName] == nil {
+		p.descriptor[resourcePropName] = []interface{}{d}
+	} else {
+		resources, ok := p.descriptor[resourcePropName].([]interface{})
+		if !ok {
+			return fmt.Errorf("invalid descriptor resource list: %v", p.descriptor[resourcePropName])
+		}
+		resources = append(resources, d)
+		p.descriptor[resourcePropName] = resources
+	}
+	if p.resources == nil {
+		p.resources = map[string]*resource.Resource{r.Name: r}
+	} else {
+		p.resources[r.Name] = r
+	}
+	return nil
+}
+
+func fromDescriptor(descriptor map[string]interface{}, resFactory resourceFactory) (*Pkg, error) {
 	r, ok := descriptor[resourcePropName]
 	if !ok {
 		return nil, fmt.Errorf("resources property is required, with at least one resource")
@@ -43,14 +74,16 @@ func fromDescriptor(descriptor map[string]interface{}, newResource resourceFacto
 		if !ok {
 			return nil, fmt.Errorf("resources must be a json object. got:%v", rInt)
 		}
-		r, err := newResource(rDesc)
+		r, err := resFactory(rDesc)
 		if err != nil {
 			return nil, err
 		}
 		resources[r.Name] = r
 	}
 	return &Pkg{
-		resources: resources,
+		resources:  resources,
+		resFactory: resFactory,
+		descriptor: descriptor,
 	}, nil
 }
 
@@ -59,7 +92,7 @@ func FromDescriptor(descriptor map[string]interface{}) (*Pkg, error) {
 	return fromDescriptor(descriptor, resource.New)
 }
 
-func fromReader(r io.Reader, newResource resourceFactory) (*Pkg, error) {
+func fromReader(r io.Reader, resFactory resourceFactory) (*Pkg, error) {
 	b, err := ioutil.ReadAll(bufio.NewReader(r))
 	if err != nil {
 		return nil, err
@@ -68,7 +101,7 @@ func fromReader(r io.Reader, newResource resourceFactory) (*Pkg, error) {
 	if err := json.Unmarshal(b, &descriptor); err != nil {
 		return nil, err
 	}
-	return fromDescriptor(descriptor, newResource)
+	return fromDescriptor(descriptor, resFactory)
 }
 
 // FromReader validates and returns a data package from an io.Reader.
