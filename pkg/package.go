@@ -34,6 +34,15 @@ func (p *Package) GetResource(name string) *resource.Resource {
 	return nil
 }
 
+// ResourceNames return a slice containing the name of the resources.
+func (p *Package) ResourceNames() []string {
+	s := make([]string, len(p.resources))
+	for i, r := range p.resources {
+		s[i] = r.Name
+	}
+	return s
+}
+
 // AddResource adds a new resource to the package, updating its descriptor accordingly.
 func (p *Package) AddResource(d map[string]interface{}) error {
 	if p.resFactory == nil {

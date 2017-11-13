@@ -93,6 +93,14 @@ func TestPackage_RemoveResource(t *testing.T) {
 	})
 }
 
+func TestPackage_ResourceNames(t *testing.T) {
+	is := is.New(t)
+	p := Package{resFactory: validResource}
+	is.True(p.AddResource(map[string]interface{}{"name": "res1"}) == nil)
+	is.True(p.AddResource(map[string]interface{}{"name": "res2"}) == nil)
+	is.Equal(p.ResourceNames(), []string{"res1", "res2"})
+}
+
 func TestFromDescriptor(t *testing.T) {
 	t.Run("ValidationErrors", func(t *testing.T) {
 		is := is.New(t)
