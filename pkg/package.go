@@ -2,6 +2,8 @@ package pkg
 
 import (
 	"bufio"
+	"bytes"
+	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,6 +11,11 @@ import (
 
 	"github.com/frictionlessdata/datapackage-go/resource"
 )
+
+func init() {
+	gob.Register(map[string]interface{}{})
+	gob.Register([]interface{}{})
+}
 
 const (
 	resourcePropName = "resources"
@@ -91,6 +98,23 @@ func Valid(descriptor map[string]interface{}) bool {
 func valid(descriptor map[string]interface{}, resFactory resourceFactory) bool {
 	_, err := fromDescriptor(descriptor, resFactory)
 	return err == nil
+}
+
+// Descriptor returns a copy of the underlying descriptor used by the package.
+func (p *Package) Descriptor() (map[string]interface{}, error) {
+	return cloneDescriptor(p.descriptor)
+}
+
+func cloneDescriptor(d map[string]interface{}) (map[string]interface{}, error) {
+	var buf bytes.Buffer
+	if err := gob.NewEncoder(&buf).Encode(d); err != nil {
+		return nil, err
+	}
+	var c map[string]interface{}
+	if err := gob.NewDecoder(&buf).Decode(&c); err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 func fromDescriptor(descriptor map[string]interface{}, resFactory resourceFactory) (*Package, error) {

@@ -101,6 +101,14 @@ func TestPackage_ResourceNames(t *testing.T) {
 	is.Equal(p.ResourceNames(), []string{"res1", "res2"})
 }
 
+func TestPackage_Descriptor(t *testing.T) {
+	is := is.New(t)
+	p := Package{resFactory: validResource}
+	is.True(p.AddResource(map[string]interface{}{"name": "res1"}) == nil)
+	c, err := p.Descriptor()
+	is.NoErr(err)
+	is.Equal(p.descriptor, c)
+}
 func TestFromDescriptor(t *testing.T) {
 	t.Run("ValidationErrors", func(t *testing.T) {
 		is := is.New(t)
