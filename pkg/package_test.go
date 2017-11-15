@@ -140,6 +140,29 @@ func TestPackage_MarshalJSON(t *testing.T) {
 	is.Equal(string(buf), `{"resources":[{"name":"res","path":"foo.csv"}]}`)
 }
 
+func TestPackage_Update(t *testing.T) {
+	is := is.New(t)
+	p, err := fromDescriptor(
+		map[string]interface{}{"resources": []interface{}{
+			map[string]interface{}{"name": "res1"},
+		}},
+		validResource)
+	is.NoErr(err)
+
+	newDesc := map[string]interface{}{"resources": []interface{}{
+		map[string]interface{}{"name": "res1"},
+		map[string]interface{}{"name": "res2"},
+	}}
+	is.NoErr(p.Update(newDesc))
+	d, err := p.Descriptor()
+	is.NoErr(err)
+	is.Equal(d, newDesc)
+
+	// Invalid resource.
+	p.resFactory = invalidResource
+	is.True(p.Update(newDesc) != nil)
+}
+
 func TestFromDescriptor(t *testing.T) {
 	t.Run("ValidationErrors", func(t *testing.T) {
 		is := is.New(t)

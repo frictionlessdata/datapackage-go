@@ -105,6 +105,21 @@ func (p *Package) Descriptor() (map[string]interface{}, error) {
 	return cloneDescriptor(p.descriptor)
 }
 
+// Update the package with the passed-in descriptor. The package will only be update if the
+// the new descriptor is valid, otherwise the error will be returned.
+func (p *Package) Update(newDescriptor map[string]interface{}) error {
+	cpy, err := cloneDescriptor(newDescriptor)
+	if err != nil {
+		return err
+	}
+	newP, err := fromDescriptor(cpy, p.resFactory)
+	if err != nil {
+		return err
+	}
+	*p = *newP
+	return nil
+}
+
 func cloneDescriptor(d map[string]interface{}) (map[string]interface{}, error) {
 	var buf bytes.Buffer
 	if err := gob.NewEncoder(&buf).Encode(d); err != nil {
