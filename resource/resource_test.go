@@ -1,6 +1,7 @@
 package resource
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 
@@ -53,7 +54,7 @@ func TestNew_schema(t *testing.T) {
 			is := is.New(t)
 			r, err := New(d.descriptor)
 			is.NoErr(err)
-			is.True(reflect.DeepEqual(d.want, r.Descriptor["schema"]))
+			is.True(reflect.DeepEqual(d.want, r.descriptor["schema"]))
 		})
 	}
 }
@@ -77,13 +78,15 @@ func TestNew_name(t *testing.T) {
 	}
 }
 
+var validResourceWithURL = map[string]interface{}{"name": "foo", "path": "http://url.com"}
+
 func TestNew_path(t *testing.T) {
 	data := []struct {
 		testDescription string
 		descriptor      map[string]interface{}
 		want            []string
 	}{
-		{"URL", map[string]interface{}{"name": "foo", "path": "http://url.com"}, []string{"http://url.com"}},
+		{"URL", validResourceWithURL, []string{"http://url.com"}},
 		{"FilePath", map[string]interface{}{"name": "foo", "path": "data/foo.csv"}, []string{"data/foo.csv"}},
 		{"SlicePath", map[string]interface{}{"name": "foo", "path": []string{"https://foo.csv", "http://data/bar.csv"}}, []string{"https://foo.csv", "http://data/bar.csv"}},
 	}
@@ -127,4 +130,49 @@ func TestNew_data(t *testing.T) {
 			is.True(reflect.DeepEqual(d.want, r.Data))
 		})
 	}
+}
+
+func TestResourceDescriptor(t *testing.T) {
+	is := is.New(t)
+	r, err := New(validResourceWithURL)
+	is.NoErr(err)
+	cpy, err := r.Descriptor()
+	is.NoErr(err)
+	is.Equal(r.descriptor, cpy)
+
+	// Checking if modifying the copy would not affect the source.
+	cpy["foo"] = "bar"
+	if reflect.DeepEqual(r.descriptor, cpy) {
+		t.Fatalf("%+v == %+v", r.descriptor, cpy)
+	}
+}
+
+func TestResource_UnmarshalJSON(t *testing.T) {
+	t.Run("ValidJSON", func(t *testing.T) {
+		is := is.New(t)
+		var r Resource
+		err := json.Unmarshal([]byte(`{"name": "foo", "path": "http://url.com"}`), &r)
+		is.NoErr(err)
+		is.Equal(r.descriptor, map[string]interface{}{"name": "foo", "path": "http://url.com"})
+	})
+	t.Run("InvalidDescriptor", func(t *testing.T) {
+		var r Resource
+		if err := json.Unmarshal([]byte(`{"name":1}`), &r); err == nil {
+			t.Fatalf("want:err got:nil")
+		}
+	})
+	t.Run("InvalidJSONMap", func(t *testing.T) {
+		var r Resource
+		if err := json.Unmarshal([]byte(`[]`), &r); err == nil {
+			t.Fatalf("want:err got:nil")
+		}
+	})
+}
+
+func TestResource_MarshalJSON(t *testing.T) {
+	is := is.New(t)
+	r, err := New(validResourceWithURL)
+	is.NoErr(err)
+	buf, err := json.Marshal(&r)
+	is.Equal(string(buf), `{"name":"foo","path":"http://url.com"}`)
 }

@@ -2,11 +2,14 @@
 package resource
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"path"
 	"regexp"
 	"strings"
+
+	"github.com/frictionlessdata/datapackage-go/clone"
 )
 
 type pathType byte
@@ -28,10 +31,34 @@ const (
 
 // Resource describes a data resource such as an individual file or table.
 type Resource struct {
-	Descriptor map[string]interface{} `json:"-"`
-	Path       []string
-	Data       interface{}
-	Name       string
+	descriptor map[string]interface{}
+	Path       []string    `json:"path,omitempty"`
+	Data       interface{} `json:"data,omitempty"`
+	Name       string      `json:"name,omitempty"`
+}
+
+// MarshalJSON returns the JSON encoding of the resource.
+func (r *Resource) MarshalJSON() ([]byte, error) {
+	return json.Marshal(r.descriptor)
+}
+
+// UnmarshalJSON parses the JSON-encoded data and stores the result in the resource descriptor.
+func (r *Resource) UnmarshalJSON(b []byte) error {
+	var descriptor map[string]interface{}
+	if err := json.Unmarshal(b, &descriptor); err != nil {
+		return err
+	}
+	aux, err := New(descriptor)
+	if err != nil {
+		return err
+	}
+	*r = *aux
+	return nil
+}
+
+// Descriptor returns a copy of the underlying descriptor which describes the resource.
+func (r *Resource) Descriptor() (map[string]interface{}, error) {
+	return clone.Descriptor(r.descriptor)
 }
 
 // New creates a new Resource from the passed-in descriptor.
@@ -41,7 +68,7 @@ func New(d map[string]interface{}) (*Resource, error) {
 	}
 	var err error
 	r := Resource{
-		Descriptor: d,
+		descriptor: d,
 	}
 	r.Name, err = parseName(d[nameProp])
 	if err != nil {

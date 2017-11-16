@@ -2,21 +2,15 @@ package pkg
 
 import (
 	"bufio"
-	"bytes"
-	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"sync"
 
+	"github.com/frictionlessdata/datapackage-go/clone"
 	"github.com/frictionlessdata/datapackage-go/resource"
 )
-
-func init() {
-	gob.Register(map[string]interface{}{})
-	gob.Register([]interface{}{})
-}
 
 const (
 	resourcePropName = "resources"
@@ -101,15 +95,15 @@ func valid(descriptor map[string]interface{}, resFactory resourceFactory) bool {
 	return err == nil
 }
 
-// Descriptor returns a copy of the underlying descriptor used by the package.
+// Descriptor returns a copy of the underlying descriptor which describes the package.
 func (p *Package) Descriptor() (map[string]interface{}, error) {
-	return cloneDescriptor(p.descriptor)
+	return clone.Descriptor(p.descriptor)
 }
 
 // Update the package with the passed-in descriptor. The package will only be update if the
 // the new descriptor is valid, otherwise the error will be returned.
 func (p *Package) Update(newDescriptor map[string]interface{}) error {
-	cpy, err := cloneDescriptor(newDescriptor)
+	cpy, err := clone.Descriptor(newDescriptor)
 	if err != nil {
 		return err
 	}
@@ -122,18 +116,6 @@ func (p *Package) Update(newDescriptor map[string]interface{}) error {
 	*p = *newP
 	m.Unlock()
 	return nil
-}
-
-func cloneDescriptor(d map[string]interface{}) (map[string]interface{}, error) {
-	var buf bytes.Buffer
-	if err := gob.NewEncoder(&buf).Encode(d); err != nil {
-		return nil, err
-	}
-	var c map[string]interface{}
-	if err := gob.NewDecoder(&buf).Decode(&c); err != nil {
-		return nil, err
-	}
-	return c, nil
 }
 
 // MarshalJSON returns the JSON encoding of the package.
