@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"sync"
 
 	"github.com/frictionlessdata/datapackage-go/resource"
 )
@@ -116,7 +117,10 @@ func (p *Package) Update(newDescriptor map[string]interface{}) error {
 	if err != nil {
 		return err
 	}
+	m := sync.Mutex{}
+	m.Lock()
 	*p = *newP
+	m.Unlock()
 	return nil
 }
 
