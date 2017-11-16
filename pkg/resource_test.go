@@ -1,4 +1,4 @@
-package resource
+package pkg
 
 import (
 	"encoding/json"
@@ -33,7 +33,7 @@ func TestNew_error(t *testing.T) {
 	for _, d := range data {
 		t.Run(d.desc, func(t *testing.T) {
 			is := is.New(t)
-			_, err := New(d.d)
+			_, err := NewResource(d.d)
 			is.True(err != nil)
 		})
 	}
@@ -52,7 +52,7 @@ func TestNew_schema(t *testing.T) {
 	for _, d := range data {
 		t.Run(d.testDescription, func(t *testing.T) {
 			is := is.New(t)
-			r, err := New(d.descriptor)
+			r, err := NewResource(d.descriptor)
 			is.NoErr(err)
 			is.True(reflect.DeepEqual(d.want, r.descriptor["schema"]))
 		})
@@ -71,7 +71,7 @@ func TestNew_name(t *testing.T) {
 	for _, d := range data {
 		t.Run(d.testDescription, func(t *testing.T) {
 			is := is.New(t)
-			r, err := New(d.descriptor)
+			r, err := NewResource(d.descriptor)
 			is.NoErr(err)
 			is.True(r.Name == d.want)
 		})
@@ -93,7 +93,7 @@ func TestNew_path(t *testing.T) {
 	for _, d := range data {
 		t.Run(d.testDescription, func(t *testing.T) {
 			is := is.New(t)
-			r, err := New(d.descriptor)
+			r, err := NewResource(d.descriptor)
 			is.NoErr(err)
 			is.True(reflect.DeepEqual(d.want, r.Path))
 		})
@@ -125,7 +125,7 @@ func TestNew_data(t *testing.T) {
 	for _, d := range data {
 		t.Run(d.testDescription, func(t *testing.T) {
 			is := is.New(t)
-			r, err := New(d.descriptor)
+			r, err := NewResource(d.descriptor)
 			is.NoErr(err)
 			is.True(reflect.DeepEqual(d.want, r.Data))
 		})
@@ -134,7 +134,7 @@ func TestNew_data(t *testing.T) {
 
 func TestResourceDescriptor(t *testing.T) {
 	is := is.New(t)
-	r, err := New(validResourceWithURL)
+	r, err := NewResource(validResourceWithURL)
 	is.NoErr(err)
 	cpy, err := r.Descriptor()
 	is.NoErr(err)
@@ -171,8 +171,17 @@ func TestResource_UnmarshalJSON(t *testing.T) {
 
 func TestResource_MarshalJSON(t *testing.T) {
 	is := is.New(t)
-	r, err := New(validResourceWithURL)
+	r, err := NewResource(validResourceWithURL)
 	is.NoErr(err)
 	buf, err := json.Marshal(&r)
 	is.Equal(string(buf), `{"name":"foo","path":"http://url.com"}`)
+}
+
+func TestResource_Valid(t *testing.T) {
+	is := is.New(t)
+	r, err := NewUncheckedResource(map[string]interface{}{})
+	is.NoErr(err)
+	if r.Valid() {
+		t.Fatalf("%+v is not valid.", r.descriptor)
+	}
 }

@@ -9,25 +9,24 @@ import (
 	"sync"
 
 	"github.com/frictionlessdata/datapackage-go/clone"
-	"github.com/frictionlessdata/datapackage-go/resource"
 )
 
 const (
 	resourcePropName = "resources"
 )
 
-type resourceFactory func(map[string]interface{}) (*resource.Resource, error)
+type resourceFactory func(map[string]interface{}) (*Resource, error)
 
 // Package represents a https://specs.frictionlessdata.io/data-package/
 type Package struct {
-	resources []*resource.Resource
+	resources []*Resource
 
 	descriptor map[string]interface{}
 	resFactory resourceFactory
 }
 
 // GetResource return the resource which the passed-in name or nil if the resource is not part of the package.
-func (p *Package) GetResource(name string) *resource.Resource {
+func (p *Package) GetResource(name string) *Resource {
 	for _, r := range p.resources {
 		if r.Name == name {
 			return r
@@ -62,10 +61,10 @@ func (p *Package) AddResource(d map[string]interface{}) error {
 	return nil
 }
 
-func newResourcesDescriptor(resources []*resource.Resource) []interface{} {
+func newResourcesDescriptor(resources []*Resource) []interface{} {
 	descRes := make([]interface{}, len(resources))
 	for i := range resources {
-		descRes[i] = resources[i].Descriptor
+		descRes[i], _ = resources[i].Descriptor()
 	}
 	return descRes
 }
@@ -87,7 +86,7 @@ func (p *Package) RemoveResource(name string) {
 
 // Valid returns true if the passed-in descriptor is valid or false, otherwise.
 func Valid(descriptor map[string]interface{}) bool {
-	return valid(descriptor, resource.New)
+	return valid(descriptor, NewResource)
 }
 
 func valid(descriptor map[string]interface{}, resFactory resourceFactory) bool {
@@ -146,7 +145,7 @@ func fromDescriptor(descriptor map[string]interface{}, resFactory resourceFactor
 	if !ok || len(rSlice) == 0 {
 		return nil, fmt.Errorf("resources property is required, with at least one resource")
 	}
-	resources := make([]*resource.Resource, len(rSlice))
+	resources := make([]*Resource, len(rSlice))
 	for pos, rInt := range rSlice {
 		rDesc, ok := rInt.(map[string]interface{})
 		if !ok {
@@ -167,7 +166,7 @@ func fromDescriptor(descriptor map[string]interface{}, resFactory resourceFactor
 
 // FromDescriptor creates a data package from a json descriptor.
 func FromDescriptor(descriptor map[string]interface{}) (*Package, error) {
-	return fromDescriptor(descriptor, resource.New)
+	return fromDescriptor(descriptor, NewResource)
 }
 
 func fromReader(r io.Reader, resFactory resourceFactory) (*Package, error) {
@@ -184,5 +183,5 @@ func fromReader(r io.Reader, resFactory resourceFactory) (*Package, error) {
 
 // FromReader validates and returns a data package from an io.Reader.
 func FromReader(r io.Reader) (*Package, error) {
-	return fromReader(r, resource.New)
+	return fromReader(r, NewResource)
 }

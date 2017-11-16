@@ -6,20 +6,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/frictionlessdata/datapackage-go/resource"
 	"github.com/matryer/is"
 )
 
-func validResource(d map[string]interface{}) (*resource.Resource, error) {
-	return &resource.Resource{Descriptor: d, Name: d["name"].(string)}, nil
-}
-
-var invalidResource = func(map[string]interface{}) (*resource.Resource, error) { return nil, fmt.Errorf("") }
+var invalidResource = func(map[string]interface{}) (*Resource, error) { return nil, fmt.Errorf("") }
 
 func TestPackage_GetResource(t *testing.T) {
 	is := is.New(t)
 	in := `{"resources":[{"name":"res"}]}`
-	p, err := fromReader(strings.NewReader(in), validResource)
+	p, err := fromReader(strings.NewReader(in), NewUncheckedResource)
 	is.NoErr(err)
 	is.Equal(p.GetResource("res").Name, "res")
 	is.True(p.GetResource("foooooo") == nil)
@@ -31,7 +26,7 @@ func TestPackage_AddResource(t *testing.T) {
 		r1 := map[string]interface{}{"name": "res1"}
 		r2 := map[string]interface{}{"name": "res2"}
 
-		p, err := fromDescriptor(map[string]interface{}{"resources": []interface{}{r1}}, validResource)
+		p, err := fromDescriptor(map[string]interface{}{"resources": []interface{}{r1}}, NewUncheckedResource)
 		is.NoErr(err)
 		p.AddResource(r2)
 
@@ -45,7 +40,7 @@ func TestPackage_AddResource(t *testing.T) {
 	})
 	t.Run("CodedPackage", func(t *testing.T) {
 		is := is.New(t)
-		p := Package{resFactory: validResource}
+		p := Package{resFactory: NewUncheckedResource}
 		r1 := map[string]interface{}{"name": "res1"}
 		err := p.AddResource(r1)
 		is.NoErr(err)
@@ -79,24 +74,26 @@ func TestPackage_RemoveResource(t *testing.T) {
 				map[string]interface{}{"name": "res1"},
 				map[string]interface{}{"name": "res2"},
 			}},
-			validResource)
+			NewUncheckedResource)
 		is.NoErr(err)
 		p.RemoveResource("res1")
 		is.Equal(len(p.descriptor), 1)
 		is.Equal(len(p.resources), 1)
-		is.Equal(p.descriptor["resources"].([]interface{})[0], p.resources[0].Descriptor)
+		desc0, err := p.resources[0].Descriptor()
+		is.NoErr(err)
+		is.Equal(p.descriptor["resources"].([]interface{})[0], desc0)
 
 		// Remove a non-existing resource and checks if everything stays the same.
 		p.RemoveResource("res1")
 		is.Equal(len(p.descriptor), 1)
 		is.Equal(len(p.resources), 1)
-		is.Equal(p.descriptor["resources"].([]interface{})[0], p.resources[0].Descriptor)
+		is.Equal(p.descriptor["resources"].([]interface{})[0], desc0)
 	})
 }
 
 func TestPackage_ResourceNames(t *testing.T) {
 	is := is.New(t)
-	p := Package{resFactory: validResource}
+	p := Package{resFactory: NewUncheckedResource}
 	is.True(p.AddResource(map[string]interface{}{"name": "res1"}) == nil)
 	is.True(p.AddResource(map[string]interface{}{"name": "res2"}) == nil)
 	is.Equal(p.ResourceNames(), []string{"res1", "res2"})
@@ -104,7 +101,7 @@ func TestPackage_ResourceNames(t *testing.T) {
 
 func TestPackage_Descriptor(t *testing.T) {
 	is := is.New(t)
-	p := Package{resFactory: validResource}
+	p := Package{resFactory: NewUncheckedResource}
 	is.True(p.AddResource(map[string]interface{}{"name": "res1"}) == nil)
 	c, err := p.Descriptor()
 	is.NoErr(err)
@@ -133,7 +130,7 @@ func TestPackage_UnmarshalJSON(t *testing.T) {
 
 func TestPackage_MarshalJSON(t *testing.T) {
 	is := is.New(t)
-	p := Package{resFactory: validResource}
+	p := Package{resFactory: NewUncheckedResource}
 	p.AddResource(map[string]interface{}{"name": "res", "path": "foo.csv"})
 	buf, err := json.Marshal(&p)
 	is.NoErr(err)
@@ -146,7 +143,7 @@ func TestPackage_Update(t *testing.T) {
 		map[string]interface{}{"resources": []interface{}{
 			map[string]interface{}{"name": "res1"},
 		}},
-		validResource)
+		NewUncheckedResource)
 	is.NoErr(err)
 
 	newDesc := map[string]interface{}{"resources": []interface{}{
@@ -171,19 +168,19 @@ func TestFromDescriptor(t *testing.T) {
 			descriptor map[string]interface{}
 			resFactory resourceFactory
 		}{
-			{"EmptyMap", map[string]interface{}{}, validResource},
+			{"EmptyMap", map[string]interface{}{}, NewUncheckedResource},
 			{"InvalidResourcePropertyType", map[string]interface{}{
 				"resources": 10,
-			}, validResource},
+			}, NewUncheckedResource},
 			{"EmptyResourcesSlice", map[string]interface{}{
 				"resources": []interface{}{},
-			}, validResource},
+			}, NewUncheckedResource},
 			{"InvalidResource", map[string]interface{}{
 				"resources": []interface{}{map[string]interface{}{}},
 			}, invalidResource},
 			{"InvalidResourceType", map[string]interface{}{
 				"resources": []interface{}{1},
-			}, validResource},
+			}, NewUncheckedResource},
 		}
 		for _, d := range data {
 			_, err := fromDescriptor(d.descriptor, d.resFactory)
@@ -195,7 +192,7 @@ func TestFromDescriptor(t *testing.T) {
 		r1 := map[string]interface{}{"name": "res"}
 		p, err := fromDescriptor(
 			map[string]interface{}{"resources": []interface{}{r1}},
-			validResource,
+			NewUncheckedResource,
 		)
 		is.NoErr(err)
 		is.True(p.resources[0] != nil)
@@ -209,18 +206,18 @@ func TestFromDescriptor(t *testing.T) {
 func TestFromReader(t *testing.T) {
 	t.Run("ValidJSON", func(t *testing.T) {
 		is := is.New(t)
-		_, err := fromReader(strings.NewReader(`{"resources":[{"name":"res"}]}`), validResource)
+		_, err := fromReader(strings.NewReader(`{"resources":[{"name":"res"}]}`), NewUncheckedResource)
 		is.NoErr(err)
 	})
 	t.Run("InvalidJSON", func(t *testing.T) {
 		is := is.New(t)
-		_, err := fromReader(strings.NewReader(`{resources}`), validResource)
+		_, err := fromReader(strings.NewReader(`{resources}`), NewUncheckedResource)
 		is.True(err != nil)
 	})
 }
 
 func TestValid(t *testing.T) {
 	is := is.New(t)
-	is.True(valid(map[string]interface{}{"resources": []interface{}{map[string]interface{}{"name": "res"}}}, validResource))
-	is.True(!valid(map[string]interface{}{}, validResource))
+	is.True(valid(map[string]interface{}{"resources": []interface{}{map[string]interface{}{"name": "res"}}}, NewUncheckedResource))
+	is.True(!valid(map[string]interface{}{}, NewUncheckedResource))
 }

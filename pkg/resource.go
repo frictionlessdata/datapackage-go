@@ -1,5 +1,4 @@
-// Package resource implements the specification: https://specs.frictionlessdata.io/data-resource/
-package resource
+package pkg
 
 import (
 	"encoding/json"
@@ -48,7 +47,7 @@ func (r *Resource) UnmarshalJSON(b []byte) error {
 	if err := json.Unmarshal(b, &descriptor); err != nil {
 		return err
 	}
-	aux, err := New(descriptor)
+	aux, err := NewResource(descriptor)
 	if err != nil {
 		return err
 	}
@@ -61,8 +60,14 @@ func (r *Resource) Descriptor() (map[string]interface{}, error) {
 	return clone.Descriptor(r.descriptor)
 }
 
-// New creates a new Resource from the passed-in descriptor.
-func New(d map[string]interface{}) (*Resource, error) {
+// Valid checks whether the resource is valid.
+func (r *Resource) Valid() bool {
+	_, err := NewResource(r.descriptor)
+	return err == nil
+}
+
+// NewResource creates a new Resource from the passed-in descriptor.
+func NewResource(d map[string]interface{}) (*Resource, error) {
 	if d[pathProp] != nil && d[dataProp] != nil {
 		return nil, fmt.Errorf("either path or data properties MUST be set (only one of them). Descriptor:%v", d)
 	}
@@ -182,4 +187,18 @@ func parsePath(pathI interface{}, d map[string]interface{}) ([]string, error) {
 		}
 	}
 	return returned, nil
+}
+
+// NewUncheckedResource returns an Resource instance based on the descriptor without any verification. The returned Resource might
+// not be valid.
+func NewUncheckedResource(d map[string]interface{}) (*Resource, error) {
+	r := &Resource{descriptor: d}
+	nI, ok := d["name"]
+	if ok {
+		nStr, ok := nI.(string)
+		if ok {
+			r.Name = nStr
+		}
+	}
+	return r, nil
 }
