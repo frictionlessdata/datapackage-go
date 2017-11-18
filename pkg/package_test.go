@@ -12,19 +12,6 @@ var invalidResource = func(map[string]interface{}) (*Resource, error) { return n
 var r1 = map[string]interface{}{"name": "res1"}
 var r2 = map[string]interface{}{"name": "res2"}
 
-type fakeValidator struct {
-	jsonSchemaValidator
-	valid bool
-}
-
-func (v *fakeValidator) IsValid(_ map[string]interface{}) bool {
-	return len(v.jsonSchemaValidator.errors) == 0
-}
-
-func newFakeValidator(_ string) (descriptorValidator, error) {
-	return &fakeValidator{}, nil
-}
-
 func TestPackage_GetResource(t *testing.T) {
 	is := is.New(t)
 	p := Package{descriptor: map[string]interface{}{"resources": []interface{}{map[string]interface{}{"name": "res"}}}}
@@ -38,7 +25,6 @@ func TestPackage_GetResource(t *testing.T) {
 func TestPackage_AddResource(t *testing.T) {
 	t.Run("ValidDescriptor", func(t *testing.T) {
 		is := is.New(t)
-
 		p := Package{descriptor: map[string]interface{}{"resources": []interface{}{}}, resFactory: NewUncheckedResource}
 		is.NoErr(p.AddResource(r1))
 		is.NoErr(p.AddResource(r2))
@@ -173,7 +159,6 @@ func TestFromDescriptor(t *testing.T) {
 	})
 	t.Run("ValidDescriptor", func(t *testing.T) {
 		is := is.New(t)
-
 		p, err := fromDescriptor(
 			map[string]interface{}{"resources": []interface{}{r1}},
 			NewUncheckedResource, newFakeValidator,

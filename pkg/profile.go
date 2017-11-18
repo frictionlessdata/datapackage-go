@@ -13,27 +13,13 @@ import (
 	"github.com/xeipuuv/gojsonschema"
 )
 
-type profileSpec struct {
-	ID            string `json:"id,omitempty"`
-	Title         string `json:"title,omitempty"`
-	Schema        string `json:"schema,omitempty"`
-	SchemaPath    string `json:"schema_path,omitempty"`
-	Specification string `json:"specification,omitempty"`
-}
-
-var registryLoader sync.Once
-var schemaRegistry = map[string]profileSpec{}
-
-var useLocalSchemaFiles = true
-
-const localRegistryPath = "/registry.json"
-const remoteRegistryURL = "http://frictionlessdata.io/schemas/registry.json"
-
+// descriptorValidator validates a Profile or Resource descriptor.
 type descriptorValidator interface {
 	IsValid(map[string]interface{}) bool
 	Errors() []error
 }
 
+// jsonSchemaValidator is a validator backed by JSONSchema parsing and validation.
 type jsonSchemaValidator struct {
 	schema *gojsonschema.Schema
 	errors []error
@@ -54,6 +40,51 @@ func (v *jsonSchemaValidator) IsValid(descriptor map[string]interface{}) bool {
 func (v *jsonSchemaValidator) Errors() []error {
 	return v.errors
 }
+
+// Fake validator is a lightweight descriptorValidator. Used in tests.
+type fakeValidator struct {
+	jsonSchemaValidator
+}
+
+func (v *fakeValidator) IsValid(_ map[string]interface{}) bool {
+	return len(v.jsonSchemaValidator.errors) == 0
+}
+
+// validatorFactory returns a descritorValidator based on the passed-in profile ID.
+type validatorFactory func(string) (descriptorValidator, error)
+
+// newFakeValidator is a validator factory which returns fake validators. Used in tests.
+func newFakeValidator(_ string) (descriptorValidator, error) { return &fakeValidator{}, nil }
+
+func validateDescriptor(descriptor map[string]interface{}, valFactory validatorFactory) error {
+	profile, ok := descriptor[profilePropName].(string)
+	if !ok {
+		return fmt.Errorf("%s property MUST be a string", profilePropName)
+	}
+	validator, err := valFactory(profile)
+	if err != nil {
+		return err
+	}
+	if !validator.IsValid(descriptor) {
+		return fmt.Errorf("There are %d validation errors:%v", len(validator.Errors()), validator.Errors())
+	}
+	return nil
+}
+
+type profileSpec struct {
+	ID            string `json:"id,omitempty"`
+	Title         string `json:"title,omitempty"`
+	Schema        string `json:"schema,omitempty"`
+	SchemaPath    string `json:"schema_path,omitempty"`
+	Specification string `json:"specification,omitempty"`
+}
+
+var registryLoader sync.Once
+var schemaRegistry = map[string]profileSpec{}
+var useLocalSchemaFiles = true
+
+const localRegistryPath = "/registry.json"
+const remoteRegistryURL = "http://frictionlessdata.io/schemas/registry.json"
 
 func newJSONSchemaValidator(profile string) (descriptorValidator, error) {
 	// Loading schema registry only once, at the first time it is needed.

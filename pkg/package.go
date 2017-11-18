@@ -23,7 +23,6 @@ const (
 
 // Package-specific factories: mostly used for making unit testing easier.
 type resourceFactory func(map[string]interface{}) (*Resource, error)
-type validatorFactory func(string) (descriptorValidator, error)
 
 // Package represents a https://specs.frictionlessdata.io/data-package/
 type Package struct {
@@ -122,21 +121,6 @@ func (p *Package) Update(newDescriptor map[string]interface{}) error {
 	return nil
 }
 
-func validateDescriptor(descriptor map[string]interface{}, valFactory validatorFactory) error {
-	profile, ok := descriptor[profilePropName].(string)
-	if !ok {
-		return fmt.Errorf("%s property MUST be a string", profilePropName)
-	}
-	validator, err := valFactory(profile)
-	if err != nil {
-		return err
-	}
-	if !validator.IsValid(descriptor) {
-		return fmt.Errorf("There are %d validation errors:%v", len(validator.Errors()), validator.Errors())
-	}
-	return nil
-}
-
 func buildResources(resI interface{}, resFactory resourceFactory) ([]*Resource, error) {
 	rSlice, ok := resI.([]interface{})
 	if !ok {
@@ -162,7 +146,7 @@ func fromDescriptor(descriptor map[string]interface{}, resFactory resourceFactor
 	if err != nil {
 		return nil, err
 	}
-	fillDescriptorWithDefaultValues(cpy)
+	fillPackageDescriptorWithDefaultValues(cpy)
 	if err := validateDescriptor(cpy, valFactory); err != nil {
 		return nil, err
 	}
@@ -178,7 +162,7 @@ func fromDescriptor(descriptor map[string]interface{}, resFactory resourceFactor
 	}, nil
 }
 
-func fillDescriptorWithDefaultValues(descriptor map[string]interface{}) {
+func fillPackageDescriptorWithDefaultValues(descriptor map[string]interface{}) {
 	if descriptor[profilePropName] == nil {
 		descriptor[profilePropName] = defaultDataPackageProfile
 	}
@@ -187,12 +171,7 @@ func fillDescriptorWithDefaultValues(descriptor map[string]interface{}) {
 		for i := range rSlice {
 			r, ok := rSlice[i].(map[string]interface{})
 			if ok {
-				if r[profilePropName] == nil {
-					r[profilePropName] = defaultResourceProfile
-				}
-				if r[encodingPropName] == nil {
-					r[encodingPropName] = defaultResourceEncoding
-				}
+				fillResourceDescriptorWithDefaultValues(r)
 			}
 		}
 	}

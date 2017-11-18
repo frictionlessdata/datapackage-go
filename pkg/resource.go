@@ -1,14 +1,19 @@
 package pkg
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"path"
-	"regexp"
 	"strings"
 
 	"github.com/frictionlessdata/datapackage-go/clone"
+)
+
+// Accepted tabular formats.
+var tabularFormats = map[string]struct{}{"csv": struct{}{}}
+
+const (
+	tabularDataResourceProfile = "tabular-data-resource"
 )
 
 type pathType byte
@@ -26,6 +31,7 @@ const (
 	pathProp      = "path"
 	dataProp      = "data"
 	jsonFormat    = "json"
+	profileProp   = "profile"
 )
 
 // Resource describes a data resource such as an individual file or table.
@@ -34,25 +40,6 @@ type Resource struct {
 	Path       []string    `json:"path,omitempty"`
 	Data       interface{} `json:"data,omitempty"`
 	Name       string      `json:"name,omitempty"`
-}
-
-// MarshalJSON returns the JSON encoding of the resource.
-func (r *Resource) MarshalJSON() ([]byte, error) {
-	return json.Marshal(r.descriptor)
-}
-
-// UnmarshalJSON parses the JSON-encoded data and stores the result in the resource descriptor.
-func (r *Resource) UnmarshalJSON(b []byte) error {
-	var descriptor map[string]interface{}
-	if err := json.Unmarshal(b, &descriptor); err != nil {
-		return err
-	}
-	aux, err := NewResource(descriptor)
-	if err != nil {
-		return err
-	}
-	*r = *aux
-	return nil
 }
 
 // Descriptor returns a copy of the underlying descriptor which describes the resource.
@@ -66,37 +53,56 @@ func (r *Resource) Valid() bool {
 	return err == nil
 }
 
+// Tabular checks whether the resource is tabular.
+func (r *Resource) Tabular() bool {
+	pI := r.descriptor[profileProp]
+	if pI != nil {
+		if pStr, ok := pI.(string); ok && pStr == tabularDataResourceProfile {
+			return true
+		}
+	}
+	return false
+}
+
 // NewResource creates a new Resource from the passed-in descriptor.
 func NewResource(d map[string]interface{}) (*Resource, error) {
-	if d[pathProp] != nil && d[dataProp] != nil {
-		return nil, fmt.Errorf("either path or data properties MUST be set (only one of them). Descriptor:%v", d)
+	return newResource(d, newJSONSchemaValidator)
+}
+
+func fillResourceDescriptorWithDefaultValues(r map[string]interface{}) {
+	if r[profilePropName] == nil {
+		r[profilePropName] = defaultResourceProfile
 	}
-	var err error
-	r := Resource{
-		descriptor: d,
+	if r[encodingPropName] == nil {
+		r[encodingPropName] = defaultResourceEncoding
 	}
-	r.Name, err = parseName(d[nameProp])
+}
+
+func newResource(d map[string]interface{}, valFactory validatorFactory) (*Resource, error) {
+	cpy, err := clone.Descriptor(d)
 	if err != nil {
 		return nil, err
 	}
-	schemaI := d[schemaProp]
-	if schemaI != nil {
-		if err := validateSchema(schemaI, d); err != nil {
-			return nil, err
-		}
+	fillResourceDescriptorWithDefaultValues(cpy)
+	if err := validateDescriptor(cpy, valFactory); err != nil {
+		return nil, err
 	}
-	pathI := d[pathProp]
+	r := Resource{
+		descriptor: cpy,
+		Name:       cpy[nameProp].(string),
+	}
+	pathI := cpy[pathProp]
 	if pathI != nil {
-		p, err := parsePath(pathI, d)
+		p, err := parsePath(pathI, cpy)
 		if err != nil {
 			return nil, err
 		}
-		r.Path = append(r.Path, p...)
+		r.Path = append([]string{}, p...)
 		return &r, nil
 	}
-	dataI := d[dataProp]
+	dataI := cpy[dataProp]
 	if dataI != nil {
-		data, err := parseData(dataI, d)
+		data, err := parseData(dataI, cpy)
 		if err != nil {
 			return nil, err
 		}
@@ -104,35 +110,6 @@ func NewResource(d map[string]interface{}) (*Resource, error) {
 		return &r, nil
 	}
 	return nil, fmt.Errorf("either path or data properties MUST be set  (only one of them). Descriptor:%v", d)
-}
-
-func validateSchema(schI interface{}, d map[string]interface{}) error {
-	switch schI.(type) {
-	case string:
-		if _, err := parsePath(schI, d); err != nil {
-			return err
-		}
-		return nil
-	case map[string]interface{}:
-		return nil
-	}
-	return fmt.Errorf("resource schema MUST be a string or a JSON schema object: %v", schI)
-}
-
-var nameRegexp = regexp.MustCompile(`^[a-z\._]+$`)
-
-func parseName(name interface{}) (string, error) {
-	if name == nil {
-		return "", fmt.Errorf("resource MUST contain a name property. ")
-	}
-	n, ok := name.(string)
-	if !ok {
-		return "", fmt.Errorf("resource names MUST be strings: %v", name)
-	}
-	if !nameRegexp.MatchString(n) {
-		return "", fmt.Errorf("resource names MUST consist only of lowercase alphanumeric characters plus \".\", \"-\" and \"_\":%v", n)
-	}
-	return n, nil
 }
 
 func parseData(dataI interface{}, d map[string]interface{}) (interface{}, error) {
@@ -143,7 +120,7 @@ func parseData(dataI interface{}, d map[string]interface{}) (interface{}, error)
 				return nil, fmt.Errorf("format or mediatype properties MUST be provided for JSON data strings. Descriptor:%v", d)
 			}
 			return dataI, nil
-		case []map[string]interface{}, map[string]interface{}:
+		case []interface{}, map[string]interface{}:
 			return dataI, nil
 		}
 	}
