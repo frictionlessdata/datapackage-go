@@ -24,13 +24,13 @@ func TestProfileIsValid(t *testing.T) {
 	defer func() { useLocalSchemaFiles = true }()
 	t.Run("ValidProfile", func(t *testing.T) {
 		is := is.New(t)
-		v, err := newProfileValidator("data-package")
+		v, err := newJSONSchemaValidator("data-package")
 		is.NoErr(err)
 		is.True(v.IsValid(map[string]interface{}{"resources": []interface{}{map[string]interface{}{"name": "res1", "path": "foo.csv"}}}))
 	})
 	t.Run("InvalidProfile", func(t *testing.T) {
 		is := is.New(t)
-		v, err := newProfileValidator("data-package")
+		v, err := newJSONSchemaValidator("data-package")
 		is.NoErr(err)
 		is.True(!v.IsValid(map[string]interface{}{"resources": []interface{}{map[string]interface{}{"name": "res1"}}}))
 	})

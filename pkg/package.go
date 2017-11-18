@@ -6,16 +6,23 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"sync"
+	"reflect"
 
 	"github.com/frictionlessdata/datapackage-go/clone"
 )
 
 const (
-	resourcePropName = "resources"
+	resourcePropName              = "resources"
+	profilePropName               = "profile"
+	encodingPropName              = "encoding"
+	defaultDataPackageProfile     = "data-package"
+	defaultResourceEncoding       = "utf-8"
+	tabularDataPackageProfileName = "tabular-data-package"
 )
 
+// Package-specific factories: mostly used for making unit testing easier.
 type resourceFactory func(map[string]interface{}) (*Resource, error)
+type validatorFactory func(string) (descriptorValidator, error)
 
 // Package represents a https://specs.frictionlessdata.io/data-package/
 type Package struct {
@@ -23,6 +30,7 @@ type Package struct {
 
 	descriptor map[string]interface{}
 	resFactory resourceFactory
+	valFactory validatorFactory
 }
 
 // GetResource return the resource which the passed-in name or nil if the resource is not part of the package.
@@ -49,52 +57,55 @@ func (p *Package) AddResource(d map[string]interface{}) error {
 	if p.resFactory == nil {
 		return fmt.Errorf("invalid resource factory. Did you mean resources.FromDescriptor?")
 	}
-	r, err := p.resFactory(d)
+	resDesc, err := clone.Descriptor(d)
 	if err != nil {
 		return err
 	}
-	p.resources = append(p.resources, r)
-	if p.descriptor == nil {
-		p.descriptor = make(map[string]interface{})
+	rSlice, ok := p.descriptor[resourcePropName].([]interface{})
+	if !ok {
+		return fmt.Errorf("invalid resources property:\"%v\"", p.descriptor[resourcePropName])
 	}
-	p.descriptor[resourcePropName] = newResourcesDescriptor(p.resources)
+	rSlice = append(rSlice, resDesc)
+	r, err := buildResources(rSlice, p.resFactory)
+	if err != nil {
+		return err
+	}
+	p.descriptor[resourcePropName] = rSlice
+	p.resources = r
 	return nil
-}
-
-func newResourcesDescriptor(resources []*Resource) []interface{} {
-	descRes := make([]interface{}, len(resources))
-	for i := range resources {
-		descRes[i], _ = resources[i].Descriptor()
-	}
-	return descRes
 }
 
 //RemoveResource removes the resource from the package, updating its descriptor accordingly.
 func (p *Package) RemoveResource(name string) {
 	index := -1
-	for i := range p.resources {
-		if p.resources[i].Name == name {
+	rSlice, ok := p.descriptor[resourcePropName].([]interface{})
+	if !ok {
+		return
+	}
+	for i := range rSlice {
+		r := rSlice[i].(map[string]interface{})
+		if r["name"] == name {
 			index = i
 			break
 		}
 	}
-	if index != -1 {
-		p.resources = append(p.resources[:index], p.resources[:index+1]...)
+	if index > -1 {
+		newSlice := append(rSlice[:index], rSlice[:index+1]...)
+		r, err := buildResources(newSlice, p.resFactory)
+		if err != nil {
+			return
+		}
+		p.descriptor[resourcePropName] = newSlice
+		p.resources = r
 	}
-	p.descriptor[resourcePropName] = newResourcesDescriptor(p.resources)
 }
 
 // Valid returns true if the passed-in descriptor is valid or false, otherwise.
 func Valid(descriptor map[string]interface{}) bool {
-	return valid(descriptor, NewResource)
+	return validateDescriptor(descriptor, newJSONSchemaValidator) == nil
 }
 
-func valid(descriptor map[string]interface{}, resFactory resourceFactory) bool {
-	_, err := fromDescriptor(descriptor, resFactory)
-	return err == nil
-}
-
-// Descriptor returns a copy of the underlying descriptor which describes the package.
+// Descriptor returns a deep copy of the underlying descriptor which describes the package.
 func (p *Package) Descriptor() (map[string]interface{}, error) {
 	return clone.Descriptor(p.descriptor)
 }
@@ -102,48 +113,33 @@ func (p *Package) Descriptor() (map[string]interface{}, error) {
 // Update the package with the passed-in descriptor. The package will only be update if the
 // the new descriptor is valid, otherwise the error will be returned.
 func (p *Package) Update(newDescriptor map[string]interface{}) error {
-	cpy, err := clone.Descriptor(newDescriptor)
+	newP, err := fromDescriptor(newDescriptor, p.resFactory, p.valFactory)
 	if err != nil {
 		return err
 	}
-	newP, err := fromDescriptor(cpy, p.resFactory)
-	if err != nil {
-		return err
-	}
-	m := sync.Mutex{}
-	m.Lock()
 	*p = *newP
-	m.Unlock()
 	return nil
 }
 
-// MarshalJSON returns the JSON encoding of the package.
-func (p *Package) MarshalJSON() ([]byte, error) {
-	return json.Marshal(p.descriptor)
-}
-
-// UnmarshalJSON parses and validates the JSON-encoded data and stores the result in the resource descriptor.
-func (p *Package) UnmarshalJSON(b []byte) error {
-	var descriptor map[string]interface{}
-	if err := json.Unmarshal(b, &descriptor); err != nil {
-		return err
+func validateDescriptor(descriptor map[string]interface{}, valFactory validatorFactory) error {
+	profile, ok := descriptor[profilePropName].(string)
+	if !ok {
+		return fmt.Errorf("%s property MUST be a string", profilePropName)
 	}
-	aux, err := FromDescriptor(descriptor)
+	validator, err := valFactory(profile)
 	if err != nil {
 		return err
 	}
-	*p = *aux
+	if !validator.IsValid(descriptor) {
+		return fmt.Errorf("There are %d validation errors:%v", len(validator.Errors()), validator.Errors())
+	}
 	return nil
 }
 
-func fromDescriptor(descriptor map[string]interface{}, resFactory resourceFactory) (*Package, error) {
-	r, ok := descriptor[resourcePropName]
+func buildResources(resI interface{}, resFactory resourceFactory) ([]*Resource, error) {
+	rSlice, ok := resI.([]interface{})
 	if !ok {
-		return nil, fmt.Errorf("resources property is required, with at least one resource")
-	}
-	rSlice, ok := r.([]interface{})
-	if !ok || len(rSlice) == 0 {
-		return nil, fmt.Errorf("resources property is required, with at least one resource")
+		return nil, fmt.Errorf("invalid resources property. Value:\"%v\" Type:\"%v\"", resI, reflect.TypeOf(resI))
 	}
 	resources := make([]*Resource, len(rSlice))
 	for pos, rInt := range rSlice {
@@ -157,19 +153,56 @@ func fromDescriptor(descriptor map[string]interface{}, resFactory resourceFactor
 		}
 		resources[pos] = r
 	}
+	return resources, nil
+}
+
+func fromDescriptor(descriptor map[string]interface{}, resFactory resourceFactory, valFactory validatorFactory) (*Package, error) {
+	cpy, err := clone.Descriptor(descriptor)
+	if err != nil {
+		return nil, err
+	}
+	fillDescriptorWithDefaultValues(cpy)
+	if err := validateDescriptor(cpy, valFactory); err != nil {
+		return nil, err
+	}
+	resources, err := buildResources(cpy[resourcePropName], resFactory)
+	if err != nil {
+		return nil, err
+	}
 	return &Package{
 		resources:  resources,
 		resFactory: resFactory,
 		descriptor: descriptor,
+		valFactory: valFactory,
 	}, nil
+}
+
+func fillDescriptorWithDefaultValues(descriptor map[string]interface{}) {
+	if descriptor[profilePropName] == nil {
+		descriptor[profilePropName] = defaultDataPackageProfile
+	}
+	rSlice, ok := descriptor[resourcePropName].([]interface{})
+	if ok {
+		for i := range rSlice {
+			r, ok := rSlice[i].(map[string]interface{})
+			if ok {
+				if r[profilePropName] == nil {
+					r[profilePropName] = defaultResourceProfile
+				}
+				if r[encodingPropName] == nil {
+					r[encodingPropName] = defaultResourceEncoding
+				}
+			}
+		}
+	}
 }
 
 // FromDescriptor creates a data package from a json descriptor.
 func FromDescriptor(descriptor map[string]interface{}) (*Package, error) {
-	return fromDescriptor(descriptor, NewResource)
+	return fromDescriptor(descriptor, NewResource, newJSONSchemaValidator)
 }
 
-func fromReader(r io.Reader, resFactory resourceFactory) (*Package, error) {
+func fromReader(r io.Reader, resFactory resourceFactory, valFactory validatorFactory) (*Package, error) {
 	b, err := ioutil.ReadAll(bufio.NewReader(r))
 	if err != nil {
 		return nil, err
@@ -178,10 +211,10 @@ func fromReader(r io.Reader, resFactory resourceFactory) (*Package, error) {
 	if err := json.Unmarshal(b, &descriptor); err != nil {
 		return nil, err
 	}
-	return fromDescriptor(descriptor, resFactory)
+	return fromDescriptor(descriptor, resFactory, valFactory)
 }
 
 // FromReader validates and returns a data package from an io.Reader.
 func FromReader(r io.Reader) (*Package, error) {
-	return fromReader(r, NewResource)
+	return fromReader(r, NewResource, newJSONSchemaValidator)
 }

@@ -1,7 +1,6 @@
 package pkg
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -10,12 +9,28 @@ import (
 )
 
 var invalidResource = func(map[string]interface{}) (*Resource, error) { return nil, fmt.Errorf("") }
+var r1 = map[string]interface{}{"name": "res1"}
+var r2 = map[string]interface{}{"name": "res2"}
+
+type fakeValidator struct {
+	jsonSchemaValidator
+	valid bool
+}
+
+func (v *fakeValidator) IsValid(_ map[string]interface{}) bool {
+	return len(v.jsonSchemaValidator.errors) == 0
+}
+
+func newFakeValidator(_ string) (descriptorValidator, error) {
+	return &fakeValidator{}, nil
+}
 
 func TestPackage_GetResource(t *testing.T) {
 	is := is.New(t)
-	in := `{"resources":[{"name":"res"}]}`
-	p, err := fromReader(strings.NewReader(in), NewUncheckedResource)
+	p := Package{descriptor: map[string]interface{}{"resources": []interface{}{map[string]interface{}{"name": "res"}}}}
+	r, err := buildResources(p.descriptor["resources"], NewUncheckedResource)
 	is.NoErr(err)
+	p.resources = r
 	is.Equal(p.GetResource("res").Name, "res")
 	is.True(p.GetResource("foooooo") == nil)
 }
@@ -23,16 +38,13 @@ func TestPackage_GetResource(t *testing.T) {
 func TestPackage_AddResource(t *testing.T) {
 	t.Run("ValidDescriptor", func(t *testing.T) {
 		is := is.New(t)
-		r1 := map[string]interface{}{"name": "res1"}
-		r2 := map[string]interface{}{"name": "res2"}
 
-		p, err := fromDescriptor(map[string]interface{}{"resources": []interface{}{r1}}, NewUncheckedResource)
-		is.NoErr(err)
-		p.AddResource(r2)
-
+		p := Package{descriptor: map[string]interface{}{"resources": []interface{}{}}, resFactory: NewUncheckedResource}
+		is.NoErr(p.AddResource(r1))
+		is.NoErr(p.AddResource(r2))
 		is.Equal(len(p.resources), 2)
+		is.Equal(p.resources[0].Name, "res1")
 		is.Equal(p.resources[1].Name, "res2")
-
 		resources := p.descriptor["resources"].([]interface{})
 		is.Equal(len(resources), 2)
 		is.Equal(resources[0], r1)
@@ -40,7 +52,7 @@ func TestPackage_AddResource(t *testing.T) {
 	})
 	t.Run("CodedPackage", func(t *testing.T) {
 		is := is.New(t)
-		p := Package{resFactory: NewUncheckedResource}
+		p := Package{descriptor: map[string]interface{}{"resources": []interface{}{}}, resFactory: NewUncheckedResource}
 		r1 := map[string]interface{}{"name": "res1"}
 		err := p.AddResource(r1)
 		is.NoErr(err)
@@ -69,13 +81,9 @@ func TestPackage_AddResource(t *testing.T) {
 func TestPackage_RemoveResource(t *testing.T) {
 	t.Run("ExistingName", func(t *testing.T) {
 		is := is.New(t)
-		p, err := fromDescriptor(
-			map[string]interface{}{"resources": []interface{}{
-				map[string]interface{}{"name": "res1"},
-				map[string]interface{}{"name": "res2"},
-			}},
-			NewUncheckedResource)
-		is.NoErr(err)
+		p := Package{descriptor: map[string]interface{}{"resources": []interface{}{}}, resFactory: NewUncheckedResource}
+		is.NoErr(p.AddResource(r1))
+		is.NoErr(p.AddResource(r2))
 		p.RemoveResource("res1")
 		is.Equal(len(p.descriptor), 1)
 		is.Equal(len(p.resources), 1)
@@ -93,48 +101,19 @@ func TestPackage_RemoveResource(t *testing.T) {
 
 func TestPackage_ResourceNames(t *testing.T) {
 	is := is.New(t)
-	p := Package{resFactory: NewUncheckedResource}
-	is.True(p.AddResource(map[string]interface{}{"name": "res1"}) == nil)
-	is.True(p.AddResource(map[string]interface{}{"name": "res2"}) == nil)
+	p := Package{descriptor: map[string]interface{}{"resources": []interface{}{}}, resFactory: NewUncheckedResource}
+	is.NoErr(p.AddResource(r1))
+	is.NoErr(p.AddResource(r2))
 	is.Equal(p.ResourceNames(), []string{"res1", "res2"})
 }
 
 func TestPackage_Descriptor(t *testing.T) {
 	is := is.New(t)
-	p := Package{resFactory: NewUncheckedResource}
-	is.True(p.AddResource(map[string]interface{}{"name": "res1"}) == nil)
+	p := Package{descriptor: map[string]interface{}{"resources": []interface{}{}}, resFactory: NewUncheckedResource}
+	is.NoErr(p.AddResource(r1))
 	c, err := p.Descriptor()
 	is.NoErr(err)
 	is.Equal(p.descriptor, c)
-}
-
-func TestPackage_UnmarshalJSON(t *testing.T) {
-	t.Run("ValidJSON", func(t *testing.T) {
-		is := is.New(t)
-		var p Package
-		err := json.Unmarshal([]byte(`{"resources":[{"name":"res", "path":"foo.csv"}]}`), &p)
-		is.NoErr(err)
-		is.Equal(p.descriptor, map[string]interface{}{"resources": []interface{}{map[string]interface{}{"name": "res", "path": "foo.csv"}}})
-	})
-	t.Run("InvalidDescriptor", func(t *testing.T) {
-		is := is.New(t)
-		var p Package
-		is.True(json.Unmarshal([]byte(`{"resources":1}`), &p) != nil)
-	})
-	t.Run("InvalidJSONMap", func(t *testing.T) {
-		is := is.New(t)
-		var p Package
-		is.True(json.Unmarshal([]byte(`[]`), &p) != nil)
-	})
-}
-
-func TestPackage_MarshalJSON(t *testing.T) {
-	is := is.New(t)
-	p := Package{resFactory: NewUncheckedResource}
-	p.AddResource(map[string]interface{}{"name": "res", "path": "foo.csv"})
-	buf, err := json.Marshal(&p)
-	is.NoErr(err)
-	is.Equal(string(buf), `{"resources":[{"name":"res","path":"foo.csv"}]}`)
 }
 
 func TestPackage_Update(t *testing.T) {
@@ -143,7 +122,8 @@ func TestPackage_Update(t *testing.T) {
 		map[string]interface{}{"resources": []interface{}{
 			map[string]interface{}{"name": "res1"},
 		}},
-		NewUncheckedResource)
+		NewUncheckedResource,
+		newFakeValidator)
 	is.NoErr(err)
 
 	newDesc := map[string]interface{}{"resources": []interface{}{
@@ -162,29 +142,29 @@ func TestPackage_Update(t *testing.T) {
 
 func TestFromDescriptor(t *testing.T) {
 	t.Run("ValidationErrors", func(t *testing.T) {
-		is := is.New(t)
 		data := []struct {
 			desc       string
 			descriptor map[string]interface{}
 			resFactory resourceFactory
+			valFactory validatorFactory
 		}{
-			{"EmptyMap", map[string]interface{}{}, NewUncheckedResource},
+			{"EmptyMap", map[string]interface{}{}, NewUncheckedResource, newFakeValidator},
 			{"InvalidResourcePropertyType", map[string]interface{}{
 				"resources": 10,
-			}, NewUncheckedResource},
-			{"EmptyResourcesSlice", map[string]interface{}{
-				"resources": []interface{}{},
-			}, NewUncheckedResource},
+			}, NewUncheckedResource, newFakeValidator},
 			{"InvalidResource", map[string]interface{}{
 				"resources": []interface{}{map[string]interface{}{}},
-			}, invalidResource},
+			}, invalidResource, newFakeValidator},
 			{"InvalidResourceType", map[string]interface{}{
 				"resources": []interface{}{1},
-			}, NewUncheckedResource},
+			}, NewUncheckedResource, newFakeValidator},
 		}
 		for _, d := range data {
-			_, err := fromDescriptor(d.descriptor, d.resFactory)
-			is.True(err != nil)
+			t.Run(d.desc, func(t *testing.T) {
+				is := is.New(t)
+				_, err := fromDescriptor(d.descriptor, d.resFactory, d.valFactory)
+				is.True(err != nil)
+			})
 		}
 	})
 	t.Run("ValidDescriptor", func(t *testing.T) {
@@ -192,7 +172,7 @@ func TestFromDescriptor(t *testing.T) {
 		r1 := map[string]interface{}{"name": "res"}
 		p, err := fromDescriptor(
 			map[string]interface{}{"resources": []interface{}{r1}},
-			NewUncheckedResource,
+			NewUncheckedResource, newFakeValidator,
 		)
 		is.NoErr(err)
 		is.True(p.resources[0] != nil)
@@ -206,18 +186,20 @@ func TestFromDescriptor(t *testing.T) {
 func TestFromReader(t *testing.T) {
 	t.Run("ValidJSON", func(t *testing.T) {
 		is := is.New(t)
-		_, err := fromReader(strings.NewReader(`{"resources":[{"name":"res"}]}`), NewUncheckedResource)
+		_, err := fromReader(strings.NewReader(`{"resources":[{"name":"res"}]}`), NewUncheckedResource, newFakeValidator)
 		is.NoErr(err)
 	})
 	t.Run("InvalidJSON", func(t *testing.T) {
 		is := is.New(t)
-		_, err := fromReader(strings.NewReader(`{resources}`), NewUncheckedResource)
+		_, err := fromReader(strings.NewReader(`{resources}`), NewUncheckedResource, newFakeValidator)
 		is.True(err != nil)
 	})
 }
 
 func TestValid(t *testing.T) {
 	is := is.New(t)
-	is.True(valid(map[string]interface{}{"resources": []interface{}{map[string]interface{}{"name": "res"}}}, NewUncheckedResource))
-	is.True(!valid(map[string]interface{}{}, NewUncheckedResource))
+	is.NoErr(validateDescriptor(map[string]interface{}{"profile": "boo"}, newFakeValidator))
+	if validateDescriptor(map[string]interface{}{}, newFakeValidator) == nil {
+		t.Fatalf("want:err got:nil")
+	}
 }

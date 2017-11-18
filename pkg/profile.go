@@ -29,12 +29,33 @@ var useLocalSchemaFiles = true
 const localRegistryPath = "/registry.json"
 const remoteRegistryURL = "http://frictionlessdata.io/schemas/registry.json"
 
-type profileValidator struct {
-	schema *gojsonschema.Schema
-	Errors []error
+type descriptorValidator interface {
+	IsValid(map[string]interface{}) bool
+	Errors() []error
 }
 
-func newProfileValidator(profile string) (*profileValidator, error) {
+type jsonSchemaValidator struct {
+	schema *gojsonschema.Schema
+	errors []error
+}
+
+func (v *jsonSchemaValidator) IsValid(descriptor map[string]interface{}) bool {
+	result, err := v.schema.Validate(gojsonschema.NewGoLoader(descriptor))
+	if err != nil {
+		v.errors = append(v.errors, err)
+		return false
+	}
+	for _, desc := range result.Errors() {
+		v.errors = append(v.errors, fmt.Errorf(desc.String()))
+	}
+	return len(v.errors) == 0
+}
+
+func (v *jsonSchemaValidator) Errors() []error {
+	return v.errors
+}
+
+func newJSONSchemaValidator(profile string) (descriptorValidator, error) {
 	// Loading schema registry only once, at the first time it is needed.
 	registryLoader.Do(func() {
 		m, err := loadSchemaRegistry(useLocalSchemaFiles, localRegistryPath, remoteRegistryURL)
@@ -47,22 +68,7 @@ func newProfileValidator(profile string) (*profileValidator, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &profileValidator{schema: schema}, nil
-}
-
-func (p *profileValidator) IsValid(descriptor map[string]interface{}) bool {
-	result, err := p.schema.Validate(gojsonschema.NewGoLoader(descriptor))
-	if err != nil {
-		p.Errors = append(p.Errors, err)
-		return false
-	}
-	if !result.Valid() {
-		for _, desc := range result.Errors() {
-			p.Errors = append(p.Errors, fmt.Errorf(desc.String()))
-		}
-		return false
-	}
-	return true
+	return &jsonSchemaValidator{schema: schema}, nil
 }
 
 func loadSchema(schemaRegistry map[string]profileSpec, profile string, useLocalSchemaFiles bool) (*gojsonschema.Schema, error) {
