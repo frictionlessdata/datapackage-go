@@ -133,7 +133,11 @@ func TestPackage_Update(t *testing.T) {
 	is.NoErr(p.Update(newDesc))
 	d, err := p.Descriptor()
 	is.NoErr(err)
-	is.Equal(d, newDesc)
+	// Filling in some default fields.
+	is.Equal(d, map[string]interface{}{"profile": "data-package", "resources": []interface{}{
+		map[string]interface{}{"name": "res1", "profile": "data-resource", "encoding": "utf-8"},
+		map[string]interface{}{"name": "res2", "profile": "data-resource", "encoding": "utf-8"},
+	}})
 
 	// Invalid resource.
 	p.resFactory = invalidResource
@@ -169,7 +173,7 @@ func TestFromDescriptor(t *testing.T) {
 	})
 	t.Run("ValidDescriptor", func(t *testing.T) {
 		is := is.New(t)
-		r1 := map[string]interface{}{"name": "res"}
+
 		p, err := fromDescriptor(
 			map[string]interface{}{"resources": []interface{}{r1}},
 			NewUncheckedResource, newFakeValidator,
@@ -179,7 +183,7 @@ func TestFromDescriptor(t *testing.T) {
 
 		resources := p.descriptor["resources"].([]interface{})
 		is.Equal(len(resources), 1)
-		is.Equal(r1, resources[0])
+		is.Equal(map[string]interface{}{"name": "res1", "profile": "data-resource", "encoding": "utf-8"}, resources[0])
 	})
 }
 

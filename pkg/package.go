@@ -172,7 +172,7 @@ func fromDescriptor(descriptor map[string]interface{}, resFactory resourceFactor
 	return &Package{
 		resources:  resources,
 		resFactory: resFactory,
-		descriptor: descriptor,
+		descriptor: cpy,
 		valFactory: valFactory,
 	}, nil
 }
