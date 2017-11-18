@@ -17,6 +17,7 @@ const (
 	encodingPropName              = "encoding"
 	defaultDataPackageProfile     = "data-package"
 	defaultResourceEncoding       = "utf-8"
+	defaultResourceProfile        = "data-resource"
 	tabularDataPackageProfileName = "tabular-data-package"
 )
 
