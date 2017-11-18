@@ -7,9 +7,27 @@
   packages = ["."]
   revision = "c0323ceb4e996e4a8795670d1fb6f60e65b82fd2"
 
+[[projects]]
+  branch = "master"
+  name = "github.com/xeipuuv/gojsonpointer"
+  packages = ["."]
+  revision = "6fe8760cad3569743d51ddbb243b26f8456742dc"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/xeipuuv/gojsonreference"
+  packages = ["."]
+  revision = "e02fc20de94c78484cd5ffb007f8af96be030a45"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/xeipuuv/gojsonschema"
+  packages = ["."]
+  revision = "212d8a0df7acfab8bdd190a7a69f0ab7376edcc8"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "778735bf71d8ad443c7ecdd8ceb59d723ffa63e2da79b89edd09c06659f8b585"
+  inputs-digest = "fc1b4c48aee427af62e9c90d6300eaf9b317d5c02dc6c3cf1bc62ec139774203"
   solver-name = "gps-cdcl"
   solver-version = 1
