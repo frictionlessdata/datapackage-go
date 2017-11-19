@@ -1,18 +1,21 @@
-package pkg
+package datapackage
 
 import (
 	"fmt"
 	"reflect"
 	"testing"
 
+	"github.com/frictionlessdata/datapackage-go/validator"
 	"github.com/matryer/is"
 )
 
+func ExampleNewResourceWithDefaultRegistry() {
+	res, _ := NewResourceWithDefaultRegistry(r1)
+	fmt.Println(res.Name)
+	// Output: res1
+}
+
 func TestNew(t *testing.T) {
-	// Those tests are a mix of the JSONSchema validation of data-resources and checks of type
-	// Avoiding touch the disk.
-	useLocalSchemaFiles = false
-	defer func() { useLocalSchemaFiles = true }()
 	t.Run("Invalid", func(t *testing.T) {
 		data := []struct {
 			desc string
@@ -29,17 +32,20 @@ func TestNew(t *testing.T) {
 			{"InvalidJSONStringData", map[string]interface{}{"name": "foo", "data": "invalidJSONObjectString"}},
 			{"InvalidJSONType", map[string]interface{}{"name": "foo", "data": 1}},
 			{"UpperCaseName", map[string]interface{}{"name": "UP", "path": "http://url.com"}},
-			{"InvalidChar", map[string]interface{}{"name": "u*p", "path": "http://url.com"}},
+			{"NameInvalidChar", map[string]interface{}{"name": "u*p", "path": "http://url.com"}},
 			{"NameWithSpace", map[string]interface{}{"name": "u p", "path": "http://url.com"}},
 			{"NameIsNotString", map[string]interface{}{"name": 1, "path": "http://url.com"}},
 			{"SchemaAsInt", map[string]interface{}{"name": "name", "schema": 1, "path": "http://url.com"}},
 			{"SchemaInvalidPath", map[string]interface{}{"name": "name", "schema": "/bar", "path": "http://url.com"}},
+			{"InvalidProfile", map[string]interface{}{"name": "foo", "path": "foo.csv", "profile": 1}},
+			{"DataAsStringNoMediatype", map[string]interface{}{"name": "foo", "data": "1,2\n3,4"}},
+			{"DataInvalidType", map[string]interface{}{"name": "foo", "data": 1}},
 		}
 		for _, d := range data {
 			t.Run(d.desc, func(t *testing.T) {
 				t.Parallel()
 				is := is.New(t)
-				_, err := NewResource(d.d)
+				_, err := NewResource(d.d, validator.MustInMemoryRegistry())
 				is.True(err != nil)
 			})
 		}
@@ -57,9 +63,8 @@ func TestNew(t *testing.T) {
 			t.Run(d.testDescription, func(t *testing.T) {
 				t.Parallel()
 				is := is.New(t)
-				r, err := NewResource(d.descriptor)
+				r, err := NewResource(d.descriptor, validator.MustInMemoryRegistry())
 				is.NoErr(err)
-				fmt.Println(r.Name)
 				is.True(r.Name == d.want)
 			})
 		}
@@ -70,7 +75,7 @@ func TestNew(t *testing.T) {
 			descriptor      map[string]interface{}
 			want            []string
 		}{
-			{"URL", validResourceWithURL, []string{"http://url.com"}},
+			{"URL", map[string]interface{}{"name": "foo", "url": "http://data/foo.csv"}, []string{"http://url.com"}},
 			{"FilePath", map[string]interface{}{"name": "foo", "path": "data/foo.csv"}, []string{"data/foo.csv"}},
 			{"SlicePath", map[string]interface{}{"name": "foo", "path": []string{"https://foo.csv", "http://data/bar.csv"}}, []string{"https://foo.csv", "http://data/bar.csv"}},
 		}
@@ -78,13 +83,13 @@ func TestNew(t *testing.T) {
 			t.Run(d.testDescription, func(t *testing.T) {
 				t.Parallel()
 				is := is.New(t)
-				r, err := NewResource(d.descriptor)
+				r, err := NewResource(d.descriptor, validator.MustInMemoryRegistry())
 				is.NoErr(err)
 				is.True(reflect.DeepEqual(d.want, r.Path))
 			})
 		}
 	})
-	t.Run("ValidPaths", func(t *testing.T) {
+	t.Run("ValidData", func(t *testing.T) {
 		data := []struct {
 			testDescription string
 			descriptor      map[string]interface{}
@@ -105,28 +110,31 @@ func TestNew(t *testing.T) {
 				map[string]interface{}{"name": "foo", "data": "A,B,C\n1,2,3\n4,5,6", "format": "csv"},
 				"A,B,C\n1,2,3\n4,5,6",
 			},
+			{
+				"Table",
+				map[string]interface{}{"name": "foo", "data": []interface{}{[]string{"A", "B"}, []string{"a", "b"}}},
+				[]interface{}{[]string{"A", "B"}, []string{"a", "b"}},
+			},
 		}
 		for _, d := range data {
 			t.Run(d.testDescription, func(t *testing.T) {
 				t.Parallel()
 				is := is.New(t)
-				r, err := NewResource(d.descriptor)
+				r, err := NewResource(d.descriptor, validator.MustInMemoryRegistry())
 				is.NoErr(err)
-				is.True(reflect.DeepEqual(d.want, r.Data))
+				if !reflect.DeepEqual(reflect.ValueOf(d.want).Interface(), r.Data) {
+					t.Fatalf("want:%v type:%v got:%v type:%v", d.want, reflect.TypeOf(d.want), r.Data, reflect.TypeOf(r.Data))
+				}
 			})
 		}
 	})
 }
 
-var validResourceWithURL = map[string]interface{}{"name": "foo", "path": "http://url.com"}
-
 func TestResource_Descriptor(t *testing.T) {
-	useLocalSchemaFiles = false
-	defer func() { useLocalSchemaFiles = true }()
-
 	is := is.New(t)
-	r, err := NewResource(validResourceWithURL)
+	r, err := NewResource(r1, validator.MustInMemoryRegistry())
 	is.NoErr(err)
+
 	cpy, err := r.Descriptor()
 	is.NoErr(err)
 	is.Equal(r.descriptor, cpy)
@@ -138,15 +146,24 @@ func TestResource_Descriptor(t *testing.T) {
 	}
 }
 
-func TestResource_Valid(t *testing.T) {
-	is := is.New(t)
-	r, err := NewUncheckedResource(map[string]interface{}{})
-	is.NoErr(err)
-	if r.Valid() {
-		t.Fatalf("%+v is not valid.", r.descriptor)
-	}
+func TestResource_Update(t *testing.T) {
+	t.Run("Valid", func(t *testing.T) {
+		is := is.New(t)
+		r, err := NewResource(r1, validator.MustInMemoryRegistry())
+		is.NoErr(err)
+		is.NoErr(r.Update(r2, validator.InMemoryLoader()))
+		desc, _ := r.Descriptor()
+		is.Equal(desc, r2Filled)
+	})
+	t.Run("Invalid", func(t *testing.T) {
+		is := is.New(t)
+		r, err := NewResource(r1, validator.MustInMemoryRegistry())
+		is.NoErr(err)
+		if err := r.Update(invalidResource, validator.InMemoryLoader()); err == nil {
+			t.Fatalf("want:err got:nil")
+		}
+	})
 }
-
 func TestResource_Tabular(t *testing.T) {
 	is := is.New(t)
 	r, _ := NewUncheckedResource(map[string]interface{}{"profile": "tabular-data-resource"})

@@ -49,11 +49,10 @@ After all editing/adding, simply invoke `esc`
 
 ```sh
 $ cd $GOPATH/src/github.com/frictionlessdata/datapackage-go
-$ cd pkg/profile_cache
+$ cd validator/profile_cache
 $ esc -o profile_cache.go -pkg profile_cache -ignore profile_cache.go .
 $ cd ../..
 $ go test ./..
 ```
 
-
-And create a PR with the changes.
+If all tests pass, you're ready to send the PR! :D

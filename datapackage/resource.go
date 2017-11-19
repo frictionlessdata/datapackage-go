@@ -1,4 +1,4 @@
-package pkg
+package datapackage
 
 import (
 	"fmt"
@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/frictionlessdata/datapackage-go/clone"
+	"github.com/frictionlessdata/datapackage-go/validator"
 )
 
 // Accepted tabular formats.
@@ -47,10 +48,19 @@ func (r *Resource) Descriptor() (map[string]interface{}, error) {
 	return clone.Descriptor(r.descriptor)
 }
 
-// Valid checks whether the resource is valid.
-func (r *Resource) Valid() bool {
-	_, err := NewResource(r.descriptor)
-	return err == nil
+// Update the resource with the passed-in descriptor. The resource will only be updated if the
+// the new descriptor is valid, otherwise the error will be returned.
+func (r *Resource) Update(d map[string]interface{}, loaders ...validator.RegistryLoader) error {
+	reg, err := validator.NewRegistry(loaders...)
+	if err != nil {
+		return err
+	}
+	res, err := NewResource(d, reg)
+	if err != nil {
+		return err
+	}
+	*r = *res
+	return nil
 }
 
 // Tabular checks whether the resource is tabular.
@@ -64,27 +74,29 @@ func (r *Resource) Tabular() bool {
 	return false
 }
 
-// NewResource creates a new Resource from the passed-in descriptor.
-func NewResource(d map[string]interface{}) (*Resource, error) {
-	return newResource(d, newJSONSchemaValidator)
+// NewResourceWithDefaultRegistry creates a new Resource from the passed-in descriptor.
+// It uses the default registry to validate the resource descriptor.
+func NewResourceWithDefaultRegistry(d map[string]interface{}) (*Resource, error) {
+	reg, err := validator.NewRegistry()
+	if err != nil {
+		return nil, err
+	}
+	return NewResource(d, reg)
 }
 
-func fillResourceDescriptorWithDefaultValues(r map[string]interface{}) {
-	if r[profilePropName] == nil {
-		r[profilePropName] = defaultResourceProfile
-	}
-	if r[encodingPropName] == nil {
-		r[encodingPropName] = defaultResourceEncoding
-	}
-}
-
-func newResource(d map[string]interface{}, valFactory validatorFactory) (*Resource, error) {
+// NewResource creates a new Resource from the passed-in descriptor, if valid. The
+// passed-in validator.Registry will be the source of profiles used in the validation.
+func NewResource(d map[string]interface{}, registry validator.Registry) (*Resource, error) {
 	cpy, err := clone.Descriptor(d)
 	if err != nil {
 		return nil, err
 	}
 	fillResourceDescriptorWithDefaultValues(cpy)
-	if err := validateDescriptor(cpy, valFactory); err != nil {
+	profile, ok := cpy[profilePropName].(string)
+	if !ok {
+		return nil, fmt.Errorf("profile property MUST be a string:\"%s\"", profilePropName)
+	}
+	if err := validator.Validate(cpy, profile, registry); err != nil {
 		return nil, err
 	}
 	r := Resource{
@@ -101,15 +113,21 @@ func newResource(d map[string]interface{}, valFactory validatorFactory) (*Resour
 		return &r, nil
 	}
 	dataI := cpy[dataProp]
-	if dataI != nil {
-		data, err := parseData(dataI, cpy)
-		if err != nil {
-			return nil, err
-		}
-		r.Data = data
-		return &r, nil
+	data, err := parseData(dataI, cpy)
+	if err != nil {
+		return nil, err
 	}
-	return nil, fmt.Errorf("either path or data properties MUST be set  (only one of them). Descriptor:%v", d)
+	r.Data = data
+	return &r, nil
+}
+
+func fillResourceDescriptorWithDefaultValues(r map[string]interface{}) {
+	if r[profilePropName] == nil {
+		r[profilePropName] = defaultResourceProfile
+	}
+	if r[encodingPropName] == nil {
+		r[encodingPropName] = defaultResourceEncoding
+	}
 }
 
 func parseData(dataI interface{}, d map[string]interface{}) (interface{}, error) {

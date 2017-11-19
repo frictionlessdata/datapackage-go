@@ -6,8 +6,8 @@ import (
 )
 
 func init() {
-	gob.Register(map[string]interface{}{})
-	gob.Register([]interface{}{})
+	gob.Register(map[string]interface{}{}) // descriptor.
+	gob.Register([]interface{}{})          // data-package resources.
 }
 
 // Descriptor deep-copies the passed-in descriptor and returns its copy.

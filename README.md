@@ -20,11 +20,44 @@ This package uses [semantic versioning 2.0.0](http://semver.org/).
 ```sh
 $ go get -u github.com/golang/dep/cmd/dep
 $ dep init
-$ dep ensure -add github.com/frictionlessdata/datapackage-go
+$ dep ensure
 ```
 
 ### Using go get
 
 ```sh
-$ go get -u github.com/frictionlessdata/datapackage-go
+$ go get -u github.com/frictionlessdata/datapackage-go/...
+```
+
+## Examples
+
+Code examples in this readme requires Go 1.8+. You could see even more example in [examples](https://github.com/frictionlessdata/datapackage-go/tree/master/examples) directory.
+
+```go
+import "github.com/frictionlessdata/datapackage-go/pkg"
+
+descriptor = map[string]interface{}{
+  "resources": [
+    {
+      "name": "example",
+      "profile": "tabular-data-resource",
+      data: [
+        ['height', 'age', 'name'],
+        ['180', '18', 'Tony'],
+        ['192', '32', 'Jacob'],
+      ],
+      schema:  {
+        fields: [
+          {name: 'height', type: 'integer'},
+          {name: 'age', type: 'integer'},
+          {name: 'name', type: 'string'},
+        ],
+      }
+    }
+  ]
+}
+
+const dataPackage = await Package.load(descriptor)
+const resource = dataPackage.getResource('example')
+await resource.read() // [[180, 18, 'Tony'], [192, 32, 'Jacob']]
 ```
