@@ -14,4 +14,4 @@ before_install:
   - go get github.com/mattn/goveralls
 
 script:
- - $HOME/gopath/bin/goveralls -service=travis-ci -ignore=pkg/profile_cache/profile_cache.go
+ - $HOME/gopath/bin/goveralls -service=travis-ci -ignore=validator/profile_cache/*.go,examples/...
