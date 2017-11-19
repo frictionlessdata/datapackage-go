@@ -1,6 +1,9 @@
 package datapackage
 
 import (
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -153,5 +156,26 @@ func TestFromReader(t *testing.T) {
 		is := is.New(t)
 		_, err := FromReader(strings.NewReader(`{resources}`), validator.InMemoryLoader())
 		is.True(err != nil)
+	})
+}
+
+func TestLoadRemote(t *testing.T) {
+	t.Run("ValidURL", func(t *testing.T) {
+		is := is.New(t)
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprintln(w, `{"resources":[{"name":"res", "path":"foo.csv"}]}`)
+		}))
+		defer ts.Close()
+		pkg, err := LoadRemote(ts.URL, validator.InMemoryLoader())
+		is.NoErr(err)
+		res, _ := pkg.GetResource("res")
+		is.Equal(res.Name, "res")
+		is.Equal(res.Path, []string{"foo.csv"})
+	})
+	t.Run("ValidURL", func(t *testing.T) {
+		_, err := LoadRemote("foobar", validator.InMemoryLoader())
+		if err == nil {
+			t.Fatalf("want:err got:nil")
+		}
 	})
 }

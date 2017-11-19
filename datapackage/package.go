@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"reflect"
 
 	"github.com/frictionlessdata/datapackage-go/clone"
@@ -154,6 +155,16 @@ func FromReader(r io.Reader, loaders ...validator.RegistryLoader) (*Package, err
 		return nil, err
 	}
 	return New(descriptor, loaders...)
+}
+
+// LoadRemote downloads and parses a data package descriptor from the specified URL.
+func LoadRemote(url string, loaders ...validator.RegistryLoader) (*Package, error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	return FromReader(resp.Body, loaders...)
 }
 
 func fillPackageDescriptorWithDefaultValues(descriptor map[string]interface{}) {
