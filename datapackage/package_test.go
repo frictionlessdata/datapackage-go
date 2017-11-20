@@ -21,14 +21,8 @@ func TestPackage_GetResource(t *testing.T) {
 	is := is.New(t)
 	pkg, err := New(map[string]interface{}{"resources": []interface{}{r1}}, validator.InMemoryLoader())
 	is.NoErr(err)
-
-	res, ok := pkg.GetResource("res1")
-	is.True(ok)
-	is.Equal(res.Name, "res1")
-
-	res, ok = pkg.GetResource("foooooo")
-	is.True(!ok)
-	is.True(res == nil)
+	is.Equal(pkg.GetResource("res1").Name, "res1")
+	is.True(pkg.GetResource("foooooo") == nil)
 }
 
 func TestPackage_AddResource(t *testing.T) {
@@ -85,6 +79,18 @@ func TestPackage_ResourceNames(t *testing.T) {
 	is := is.New(t)
 	pkg, _ := New(map[string]interface{}{"resources": []interface{}{r1, r2}}, validator.InMemoryLoader())
 	is.Equal(pkg.ResourceNames(), []string{"res1", "res2"})
+}
+
+func TestPackage_Resources(t *testing.T) {
+	is := is.New(t)
+	pkg, _ := New(map[string]interface{}{"resources": []interface{}{r1, r2}}, validator.InMemoryLoader())
+	resources := pkg.Resources()
+	is.Equal(resources[0].Name, "res1")
+	is.Equal(resources[1].Name, "res2")
+
+	// Changing the returned slice must not change the package.
+	resources = append(resources, &Resource{Name: "foo"})
+	is.Equal(len(pkg.ResourceNames()), 2)
 }
 
 func TestPackage_Descriptor(t *testing.T) {
@@ -159,21 +165,21 @@ func TestFromReader(t *testing.T) {
 	})
 }
 
-func TestLoadRemote(t *testing.T) {
+func TestLoad(t *testing.T) {
 	t.Run("ValidURL", func(t *testing.T) {
 		is := is.New(t)
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintln(w, `{"resources":[{"name":"res", "path":"foo.csv"}]}`)
 		}))
 		defer ts.Close()
-		pkg, err := LoadRemote(ts.URL, validator.InMemoryLoader())
+		pkg, err := Load(ts.URL, validator.InMemoryLoader())
 		is.NoErr(err)
-		res, _ := pkg.GetResource("res")
+		res := pkg.GetResource("res")
 		is.Equal(res.Name, "res")
 		is.Equal(res.Path, []string{"foo.csv"})
 	})
 	t.Run("ValidURL", func(t *testing.T) {
-		_, err := LoadRemote("foobar", validator.InMemoryLoader())
+		_, err := Load("foobar", validator.InMemoryLoader())
 		if err == nil {
 			t.Fatalf("want:err got:nil")
 		}

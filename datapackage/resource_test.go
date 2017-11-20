@@ -2,6 +2,8 @@ package datapackage
 
 import (
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"testing"
 
@@ -170,4 +172,66 @@ func TestResource_Tabular(t *testing.T) {
 	is.True(r.Tabular())
 	r1, _ := NewUncheckedResource(map[string]interface{}{"profile": "data-resource"})
 	is.True(!r1.Tabular())
+	r2, _ := NewUncheckedResource(map[string]interface{}{"format": "csv"})
+	is.True(r2.Tabular())
+}
+
+func TestResource_ReadAll(t *testing.T) {
+	t.Run("LoadData", func(t *testing.T) {
+		is := is.New(t)
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprintln(w, "name\nfoo")
+		}))
+		defer ts.Close()
+		resStr := fmt.Sprintf(`
+		{
+			"name":    "names",
+			"path":    "%s",
+			"format":  "csv",
+			"profile": "tabular-data-resource",
+			"schema": {
+				"fields": [
+				{
+					"name": "name",
+					"type": "string"
+				}
+				]
+			}
+		}`, ts.URL)
+		res, err := NewResourceFromString(resStr, validator.MustInMemoryRegistry())
+		is.NoErr(err)
+		contents, err := res.ReadAll()
+		is.NoErr(err)
+		is.Equal(contents, [][]string{{"name"}, {"foo"}})
+	})
+	t.Run("InlineData", func(t *testing.T) {
+		is := is.New(t)
+		resStr := `
+			{
+				"name":    "names",
+				"data":    "name\nfoo",
+				"format":  "csv",
+				"profile": "tabular-data-resource",
+				"schema": {
+					"fields": [
+					{
+						"name": "name",
+						"type": "string"
+					}
+					]
+				}
+			}`
+		res, err := NewResourceFromString(resStr, validator.MustInMemoryRegistry())
+		is.NoErr(err)
+		contents, err := res.ReadAll()
+		is.NoErr(err)
+		is.Equal(contents, [][]string{{"name"}, {"foo"}})
+	})
+	t.Run("InlineData", func(t *testing.T) {
+		r1, _ := NewUncheckedResource(map[string]interface{}{"profile": "data-resource"})
+		_, err := r1.ReadAll()
+		if err == nil {
+			t.Fatalf("want:nil got:err")
+		}
+	})
 }

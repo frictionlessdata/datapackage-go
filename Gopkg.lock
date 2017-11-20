@@ -2,6 +2,12 @@
 
 
 [[projects]]
+  name = "github.com/frictionlessdata/tableschema-go"
+  packages = ["csv","table"]
+  revision = "df55ce69d344de17283c5c39735e56eede2a5ebe"
+  version = "v1.0"
+
+[[projects]]
   branch = "master"
   name = "github.com/matryer/is"
   packages = ["."]
@@ -28,6 +34,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "fc1b4c48aee427af62e9c90d6300eaf9b317d5c02dc6c3cf1bc62ec139774203"
+  inputs-digest = "8f24db9eefe9bcb7c50010c6188889f5bb3fcad0c67209c7996df096af10c949"
   solver-name = "gps-cdcl"
   solver-version = 1

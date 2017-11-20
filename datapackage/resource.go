@@ -1,6 +1,7 @@
 package datapackage
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"path"
@@ -8,10 +9,17 @@ import (
 
 	"github.com/frictionlessdata/datapackage-go/clone"
 	"github.com/frictionlessdata/datapackage-go/validator"
+	"github.com/frictionlessdata/tableschema-go/csv"
+	"github.com/frictionlessdata/tableschema-go/table"
 )
 
 // Accepted tabular formats.
-var tabularFormats = map[string]struct{}{"csv": struct{}{}}
+var tabularFormats = map[string]struct{}{
+	"csv":  struct{}{},
+	"tsv":  struct{}{},
+	"xls":  struct{}{},
+	"xlsx": struct{}{},
+}
 
 const (
 	tabularDataResourceProfile = "tabular-data-resource"
@@ -65,13 +73,53 @@ func (r *Resource) Update(d map[string]interface{}, loaders ...validator.Registr
 
 // Tabular checks whether the resource is tabular.
 func (r *Resource) Tabular() bool {
-	pI := r.descriptor[profileProp]
-	if pI != nil {
-		if pStr, ok := pI.(string); ok && pStr == tabularDataResourceProfile {
-			return true
+	if pStr, ok := r.descriptor[profileProp].(string); ok && pStr == tabularDataResourceProfile {
+		return true
+	}
+	fStr, _ := r.descriptor[formatProp].(string)
+	_, ok := tabularFormats[fStr]
+	return ok
+}
+
+// GetTable returns a table object to access the data. Returns an error if the resource is not tabular.
+func (r *Resource) GetTable(opts ...csv.CreationOpts) (table.Table, error) {
+	if !r.Tabular() {
+		return nil, fmt.Errorf("methods iter/read are not supported for non tabular data")
+	}
+	// Inlined resources.
+	if r.Data != nil {
+		switch r.Data.(type) {
+		case string:
+			return csv.NewTable(csv.FromString(r.Data.(string)), opts...)
+		default:
+			return nil, fmt.Errorf("only inline data as strings is supported")
 		}
 	}
-	return false
+	// Single-part resources.
+	if len(r.Path) == 1 {
+		p := r.Path[0]
+		var source csv.Source
+		if strings.HasPrefix(p, "http") {
+			source = csv.Remote(p)
+		} else {
+			source = csv.FromFile(p)
+		}
+		t, err := csv.NewTable(source, opts...)
+		if err != nil {
+			return nil, err
+		}
+		return t, nil
+	}
+	return nil, nil
+}
+
+// ReadAll reads all rows from the table and return it as strings.
+func (r *Resource) ReadAll(opts ...csv.CreationOpts) ([][]string, error) {
+	t, err := r.GetTable(opts...)
+	if err != nil {
+		return nil, err
+	}
+	return t.ReadAll()
 }
 
 // NewResourceWithDefaultRegistry creates a new Resource from the passed-in descriptor.
@@ -196,4 +244,15 @@ func NewUncheckedResource(d map[string]interface{}) (*Resource, error) {
 		}
 	}
 	return r, nil
+}
+
+// NewResourceFromString creates a new Resource from the passed-in JSON descriptor, if valid. The
+// passed-in validator.Registry will be the source of profiles used in the validation.
+func NewResourceFromString(res string, registry validator.Registry) (*Resource, error) {
+	var d map[string]interface{}
+	if err := json.Unmarshal([]byte(res), &d); err != nil {
+		return nil, err
+	}
+	fmt.Println(d)
+	return NewResource(d, registry)
 }

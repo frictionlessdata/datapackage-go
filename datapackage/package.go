@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"reflect"
+	"strings"
 
 	"github.com/frictionlessdata/datapackage-go/clone"
 	"github.com/frictionlessdata/datapackage-go/validator"
@@ -35,13 +36,13 @@ type Package struct {
 }
 
 // GetResource return the resource which the passed-in name or nil if the resource is not part of the package.
-func (p *Package) GetResource(name string) (*Resource, bool) {
+func (p *Package) GetResource(name string) *Resource {
 	for _, r := range p.resources {
 		if r.Name == name {
-			return r, true
+			return r
 		}
 	}
-	return nil, false
+	return nil
 }
 
 // ResourceNames return a slice containing the name of the resources.
@@ -51,6 +52,15 @@ func (p *Package) ResourceNames() []string {
 		s[i] = r.Name
 	}
 	return s
+}
+
+// Resources returns a copy of data package resources.
+func (p *Package) Resources() []*Resource {
+	// NOTE: Ignoring errors because we are not changing anything. Just cloning a valid package descriptor and building
+	// its resources.
+	cpy, _ := clone.Descriptor(p.descriptor)
+	res, _ := buildResources(cpy[resourcePropName], p.valRegistry)
+	return res
 }
 
 // AddResource adds a new resource to the package, updating its descriptor accordingly.
@@ -157,14 +167,28 @@ func FromReader(r io.Reader, loaders ...validator.RegistryLoader) (*Package, err
 	return New(descriptor, loaders...)
 }
 
-// LoadRemote downloads and parses a data package descriptor from the specified URL.
-func LoadRemote(url string, loaders ...validator.RegistryLoader) (*Package, error) {
-	resp, err := http.Get(url)
-	if err != nil {
-		return nil, err
+// Load the data package descriptor from the specified URL or file path.
+func Load(p string, loaders ...validator.RegistryLoader) (*Package, error) {
+	var contents string
+	if strings.HasPrefix(p, "http") {
+		resp, err := http.Get(p)
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
+		buf, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+		contents = string(buf)
+	} else {
+		buf, err := ioutil.ReadFile(p)
+		if err != nil {
+			return nil, err
+		}
+		contents = string(buf)
 	}
-	defer resp.Body.Close()
-	return FromReader(resp.Body, loaders...)
+	return FromReader(strings.NewReader(contents), loaders...)
 }
 
 func fillPackageDescriptorWithDefaultValues(descriptor map[string]interface{}) {
