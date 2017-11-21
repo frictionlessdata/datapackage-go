@@ -54,12 +54,65 @@ descriptor := `
 		]
 	}
 	`
-	pkg, err := FromString(descriptor)
-	if err != nil {
-		panic(err)
-	}
-	res := pkg.GetResource("example")
-	contents, _ := res.ReadAll(csv.LoadHeaders())
-	fmt.Println(contents)
-	// Output: [[180 18 Tony] [192 32 Jacob]]
+pkg, err := FromString(descriptor)
+if err != nil {
+    panic(err)
+}
+res := pkg.GetResource("example")
+contents, _ := res.ReadAll(csv.LoadHeaders())
+fmt.Println(contents)
+// [[180 18 Tony] [192 32 Jacob]]
+```
+
+## Main Features
+
+### Packages
+
+A [data package](http://frictionlessdata.io/specs/data-package/) is a collection of [resources](http://frictionlessdata.io/specs/data-resource/). The [datapackage.Package](https://godoc.org/github.com/frictionlessdata/datapackage-go/datapackage#Package) provides various capabilities like loading local or remote data package, saving a data package descriptor and many more.
+
+Consider we have some local csv file and a JSON descriptor in a `data` directory:
+
+> data/population.csv
+```csv
+city,year,population
+london,2017,8780000
+paris,2017,2240000
+rome,2017,2860000
+```
+
+> data/datapackage.json
+```json
+{
+    "name": "world",
+    "resources": [
+      {
+        "name": "population",
+        "path": "population.csv",
+        "profile":"tabular-data-resource",
+        "schema": {
+          "fields": [
+            {"name": "city", "type": "string"},
+            {"name": "year", "type": "integer"},
+            {"name": "population", "type": "integer"}
+          ]
+        }
+      }
+    ]
+  }
+```
+
+Let's create a data package based on this data using the [datapackage.Package](https://godoc.org/github.com/frictionlessdata/datapackage-go/datapackage#Package) class:
+
+```go
+pkg, err := datapackage.Load("data/datapackage.json")
+// Error validation.
+```
+
+Once the data package is loaded, we could use the [datapackage.Resource](https://godoc.org/github.com/frictionlessdata/datapackage-go/datapackage#Resource) class to read and iterate over the data resource's contents:
+
+```go
+books := pkg.GetResource("books")
+contents, _ := books.ReadAll()
+fmt.Println(contents)
+// [[london 2017 8780000] [paris 2017 2240000] [rome 20172860000]]
 ```
