@@ -13,13 +13,11 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	pkgDesc, _ := pkg.Descriptor()
-	fmt.Printf("Data package \"%s\" successfully created.\n", pkgDesc["name"])
+	fmt.Printf("Data package \"%s\" successfully created.\n", pkg.Descriptor()["name"])
 
 	fmt.Printf("\n## Resources ##")
 	for _, res := range pkg.Resources() {
-		d, _ := res.Descriptor()
-		b, _ := json.MarshalIndent(d, "", "  ")
+		b, _ := json.MarshalIndent(res.Descriptor(), "", "  ")
 		fmt.Println(string(b))
 	}
 
