@@ -43,9 +43,45 @@ func ExampleResource_ReadAll() {
 	// Output: [[180 18 Tony] [192 32 Jacob]]
 }
 
+func ExampleResource_Cast() {
+	descriptor := `
+	{
+		"name": "remote_datapackage",
+		"resources": [
+		  {
+			"name": "example",
+			"format": "csv",
+			"data": "height,age,name\n180,18,Tony\n192,32,Jacob",
+			"profile":"tabular-data-resource",
+			"schema": {
+			  "fields": [
+				  {"name":"Height", "type":"integer"},
+				  {"name":"Age", "type":"integer"},
+				  {"name":"Name", "type":"string"}
+			  ]
+			}
+		  }
+		]
+	}
+	`
+	pkg, err := FromString(descriptor, validator.InMemoryLoader())
+	if err != nil {
+		panic(err)
+	}
+	res := pkg.GetResource("example")
+	people := []struct {
+		Height int
+		Age    int
+		Name   string
+	}{}
+	res.Cast(&people, csv.LoadHeaders())
+	fmt.Printf("%+v", people)
+	// Output: [{Height:180 Age:18 Name:Tony} {Height:192 Age:32 Name:Jacob}]
+}
+
 func ExampleNewResourceWithDefaultRegistry() {
 	res, _ := NewResourceWithDefaultRegistry(r1)
-	fmt.Println(res.Name)
+	fmt.Println(res.Name())
 	// Output: res1
 }
 
@@ -99,7 +135,7 @@ func TestNew(t *testing.T) {
 				is := is.New(t)
 				r, err := NewResource(d.descriptor, validator.MustInMemoryRegistry())
 				is.NoErr(err)
-				is.True(r.Name == d.want)
+				is.True(r.name == d.want)
 			})
 		}
 	})
@@ -119,7 +155,7 @@ func TestNew(t *testing.T) {
 				is := is.New(t)
 				r, err := NewResource(d.descriptor, validator.MustInMemoryRegistry())
 				is.NoErr(err)
-				is.True(reflect.DeepEqual(d.want, r.Path))
+				is.True(reflect.DeepEqual(d.want, r.path))
 			})
 		}
 	})
@@ -156,8 +192,8 @@ func TestNew(t *testing.T) {
 				is := is.New(t)
 				r, err := NewResource(d.descriptor, validator.MustInMemoryRegistry())
 				is.NoErr(err)
-				if !reflect.DeepEqual(reflect.ValueOf(d.want).Interface(), r.Data) {
-					t.Fatalf("want:%v type:%v got:%v type:%v", d.want, reflect.TypeOf(d.want), r.Data, reflect.TypeOf(r.Data))
+				if !reflect.DeepEqual(reflect.ValueOf(d.want).Interface(), r.data) {
+					t.Fatalf("want:%v type:%v got:%v type:%v", d.want, reflect.TypeOf(d.want), r.data, reflect.TypeOf(r.data))
 				}
 			})
 		}
@@ -200,11 +236,11 @@ func TestResource_Update(t *testing.T) {
 }
 func TestResource_Tabular(t *testing.T) {
 	is := is.New(t)
-	r, _ := NewUncheckedResource(map[string]interface{}{"profile": "tabular-data-resource"})
+	r := NewUncheckedResource(map[string]interface{}{"profile": "tabular-data-resource"})
 	is.True(r.Tabular())
-	r1, _ := NewUncheckedResource(map[string]interface{}{"profile": "data-resource"})
+	r1 := NewUncheckedResource(map[string]interface{}{"profile": "data-resource"})
 	is.True(!r1.Tabular())
-	r2, _ := NewUncheckedResource(map[string]interface{}{"format": "csv"})
+	r2 := NewUncheckedResource(map[string]interface{}{"format": "csv"})
 	is.True(r2.Tabular())
 }
 
@@ -219,7 +255,6 @@ func TestResource_ReadAll(t *testing.T) {
 		{
 			"name":    "names",
 			"path":    "%s",
-			"format":  "csv",
 			"profile": "tabular-data-resource",
 			"schema": {
 				"fields": [
@@ -245,12 +280,7 @@ func TestResource_ReadAll(t *testing.T) {
 				"format":  "csv",
 				"profile": "tabular-data-resource",
 				"schema": {
-					"fields": [
-					{
-						"name": "name",
-						"type": "string"
-					}
-					]
+					"fields": [{"name": "name", "type": "string"}]
 				}
 			}`
 		res, err := NewResourceFromString(resStr, validator.MustInMemoryRegistry())
@@ -260,10 +290,94 @@ func TestResource_ReadAll(t *testing.T) {
 		is.Equal(contents, [][]string{{"name"}, {"foo"}})
 	})
 	t.Run("InvalidProfileType", func(t *testing.T) {
-		r1, _ := NewUncheckedResource(map[string]interface{}{"profile": "data-resource"})
+		r1 := NewUncheckedResource(map[string]interface{}{"profile": "data-resource"})
 		_, err := r1.ReadAll()
 		if err == nil {
 			t.Fatalf("want:nil got:err")
+		}
+	})
+}
+
+func TestResource_Iter(t *testing.T) {
+	is := is.New(t)
+	resStr := `
+		{
+			"name":    "iter",
+			"data":    "name",
+			"format":  "csv",
+			"profile": "tabular-data-resource",
+			"schema": {"fields": [{"name": "foo", "type": "string"}]}
+		}`
+	res, err := NewResourceFromString(resStr, validator.MustInMemoryRegistry())
+	is.NoErr(err)
+	iter, err := res.Iter()
+	is.NoErr(err)
+	is.True(iter.Next())
+	is.Equal(iter.Row(), []string{"name"})
+	is.True(!iter.Next())
+}
+
+func TestResource_GetSchema(t *testing.T) {
+	t.Run("Valid", func(t *testing.T) {
+		is := is.New(t)
+		resStr := `
+			{
+				"name":    "iter",
+				"data":    "32",
+				"format":  "csv",
+				"profile": "tabular-data-resource",
+				"schema": {"fields": [{"name": "Age", "type": "integer"}]}
+			}`
+		res, err := NewResourceFromString(resStr, validator.MustInMemoryRegistry())
+		is.NoErr(err)
+		sch, err := res.GetSchema()
+		is.NoErr(err)
+		row := struct {
+			Age int
+		}{}
+		sch.CastRow([]string{"32"}, &row)
+		is.Equal(row.Age, 32)
+	})
+	t.Run("NoSchema", func(t *testing.T) {
+		res := NewUncheckedResource(map[string]interface{}{})
+		_, err := res.GetSchema()
+		if err == nil {
+			t.Fatal("want:err got:nil")
+		}
+	})
+}
+
+func TestResource_Cast(t *testing.T) {
+	resStr := `
+	{
+		"name":    "iter",
+		"data":    "32",
+		"format":  "csv",
+		"profile": "tabular-data-resource",
+		"schema": {"fields": [{"name": "Age", "type": "integer"}]}
+	}`
+	rows := []struct {
+		Age int
+	}{}
+	t.Run("Valid", func(t *testing.T) {
+		is := is.New(t)
+		res, err := NewResourceFromString(resStr, validator.MustInMemoryRegistry())
+		is.NoErr(err)
+		is.NoErr(res.Cast(&rows))
+		is.Equal(rows[0].Age, 32)
+	})
+	t.Run("NoSchema", func(t *testing.T) {
+		res := NewUncheckedResource(map[string]interface{}{})
+		if res.Cast(&rows) == nil {
+			t.Fatal("want:err got:nil")
+		}
+	})
+	t.Run("NoData", func(t *testing.T) {
+		res := NewUncheckedResource(map[string]interface{}{
+			"schema": map[string]interface{}{},
+		})
+		if res.Cast(&rows) == nil {
+			t.Fatal("want:err got:nil")
 		}
 	})
 }

@@ -38,7 +38,7 @@ type Package struct {
 // GetResource return the resource which the passed-in name or nil if the resource is not part of the package.
 func (p *Package) GetResource(name string) *Resource {
 	for _, r := range p.resources {
-		if r.Name == name {
+		if r.name == name {
 			return r
 		}
 	}
@@ -49,7 +49,7 @@ func (p *Package) GetResource(name string) *Resource {
 func (p *Package) ResourceNames() []string {
 	s := make([]string, len(p.resources))
 	for i, r := range p.resources {
-		s[i] = r.Name
+		s[i] = r.name
 	}
 	return s
 }

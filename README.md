@@ -66,7 +66,7 @@ fmt.Println(contents)
 
 ## Main Features
 
-### Packages
+### Data description and processing
 
 A [data package](http://frictionlessdata.io/specs/data-package/) is a collection of [resources](http://frictionlessdata.io/specs/data-resource/). The [datapackage.Package](https://godoc.org/github.com/frictionlessdata/datapackage-go/datapackage#Package) provides various capabilities like loading local or remote data package, saving a data package descriptor and many more.
 
@@ -108,11 +108,41 @@ pkg, err := datapackage.Load("data/datapackage.json")
 // Error validation.
 ```
 
-Once the data package is loaded, we could use the [datapackage.Resource](https://godoc.org/github.com/frictionlessdata/datapackage-go/datapackage#Resource) class to read and iterate over the data resource's contents:
+Once the data package is loaded, we could use the [datapackage.Resource](https://godoc.org/github.com/frictionlessdata/datapackage-go/datapackage#Resource) class to read data resource's contents:
 
 ```go
-books := pkg.GetResource("books")
-contents, _ := books.ReadAll()
+resource := pkg.GetResource("population")
+contents, _ := resource.ReadAll()
 fmt.Println(contents)
 // [[london 2017 8780000] [paris 2017 2240000] [rome 20172860000]]
+```
+
+Or you could cast to Go types, making it easier to perform further processing:
+
+```go
+type Population struct {
+    City string `tableheader:"city"`
+    Year  string `tableheader:"year"`
+    Population   int    `tableheader:"population"`
+}
+
+var cities []Population
+resource.Cast(&cities, csv.LoadHeaders())
+fmt.Printf("+v", )
+// [{City:london Year:2017 Population:8780000} {City:paris Year:2017 Population:2240000} {City:rome Year:2017 Population:2860000}]
+```
+
+Finally, if the data is to big to be loaded at once, or if you would like to perform line-by-line processing you could iterate through the resource contents:
+
+```go
+iter, _ := resource.Iter(csv.LoadHeaders())
+sch, _ := resource.GetSchema()
+for iter.Next() {
+    var p Population
+    sch.CastRow(iter.Row(), &cp)
+    fmt.Printf("%+v\n", p)
+}
+// {City:london Year:2017 Population:8780000
+// {City:paris Year:2017 Population:2240000}
+// {City:rome Year:2017 Population:2860000}]
 ```

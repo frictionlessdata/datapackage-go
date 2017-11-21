@@ -21,7 +21,7 @@ func TestPackage_GetResource(t *testing.T) {
 	is := is.New(t)
 	pkg, err := New(map[string]interface{}{"resources": []interface{}{r1}}, validator.InMemoryLoader())
 	is.NoErr(err)
-	is.Equal(pkg.GetResource("res1").Name, "res1")
+	is.Equal(pkg.GetResource("res1").name, "res1")
 	is.True(pkg.GetResource("foooooo") == nil)
 }
 
@@ -33,8 +33,8 @@ func TestPackage_AddResource(t *testing.T) {
 
 		// Checking resources.
 		is.Equal(len(pkg.resources), 2)
-		is.Equal(pkg.resources[0].Name, "res1")
-		is.Equal(pkg.resources[1].Name, "res2")
+		is.Equal(pkg.resources[0].name, "res1")
+		is.Equal(pkg.resources[1].name, "res2")
 
 		// Checking descriptor.
 		resDesc := pkg.descriptor["resources"].([]interface{})
@@ -60,7 +60,7 @@ func TestPackage_RemoveResource(t *testing.T) {
 		is.Equal(len(resDesc), 1)
 		is.Equal(resDesc[0], r1Filled)
 		is.Equal(len(pkg.resources), 1)
-		is.Equal(pkg.resources[0].Name, "res1")
+		is.Equal(pkg.resources[0].name, "res1")
 	})
 	t.Run("NonExisting", func(t *testing.T) {
 		is := is.New(t)
@@ -71,7 +71,7 @@ func TestPackage_RemoveResource(t *testing.T) {
 		is.Equal(len(resDesc), 1)
 		is.Equal(resDesc[0], r1Filled)
 		is.Equal(len(pkg.resources), 1)
-		is.Equal(pkg.resources[0].Name, "res1")
+		is.Equal(pkg.resources[0].name, "res1")
 	})
 }
 
@@ -85,11 +85,11 @@ func TestPackage_Resources(t *testing.T) {
 	is := is.New(t)
 	pkg, _ := New(map[string]interface{}{"resources": []interface{}{r1, r2}}, validator.InMemoryLoader())
 	resources := pkg.Resources()
-	is.Equal(resources[0].Name, "res1")
-	is.Equal(resources[1].Name, "res2")
+	is.Equal(resources[0].name, "res1")
+	is.Equal(resources[1].name, "res2")
 
 	// Changing the returned slice must not change the package.
-	resources = append(resources, &Resource{Name: "foo"})
+	resources = append(resources, &Resource{name: "foo"})
 	is.Equal(len(pkg.ResourceNames()), 2)
 }
 
@@ -145,7 +145,7 @@ func TestFromDescriptor(t *testing.T) {
 		pkg, err := New(map[string]interface{}{"resources": []interface{}{r1}}, validator.InMemoryLoader())
 		is.NoErr(err)
 		is.Equal(len(pkg.resources), 1)
-		is.Equal(pkg.resources[0].Name, "res1")
+		is.Equal(pkg.resources[0].name, "res1")
 		resources := pkg.descriptor["resources"].([]interface{})
 		is.Equal(len(resources), 1)
 		is.Equal(resources[0], r1Filled)
@@ -175,8 +175,8 @@ func TestLoad(t *testing.T) {
 		pkg, err := Load(ts.URL, validator.InMemoryLoader())
 		is.NoErr(err)
 		res := pkg.GetResource("res")
-		is.Equal(res.Name, "res")
-		is.Equal(res.Path, []string{"foo.csv"})
+		is.Equal(res.name, "res")
+		is.Equal(res.path, []string{"foo.csv"})
 	})
 	t.Run("ValidURL", func(t *testing.T) {
 		_, err := Load("foobar", validator.InMemoryLoader())

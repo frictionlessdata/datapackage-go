@@ -10,6 +10,7 @@ import (
 	"github.com/frictionlessdata/datapackage-go/clone"
 	"github.com/frictionlessdata/datapackage-go/validator"
 	"github.com/frictionlessdata/tableschema-go/csv"
+	"github.com/frictionlessdata/tableschema-go/schema"
 	"github.com/frictionlessdata/tableschema-go/table"
 )
 
@@ -46,9 +47,14 @@ const (
 // Resource describes a data resource such as an individual file or table.
 type Resource struct {
 	descriptor map[string]interface{}
-	Path       []string    `json:"path,omitempty"`
-	Data       interface{} `json:"data,omitempty"`
-	Name       string      `json:"name,omitempty"`
+	path       []string
+	data       interface{}
+	name       string
+}
+
+// Name returns the resource name.
+func (r *Resource) Name() string {
+	return r.name
 }
 
 // Descriptor returns a copy of the underlying descriptor which describes the resource.
@@ -87,17 +93,17 @@ func (r *Resource) GetTable(opts ...csv.CreationOpts) (table.Table, error) {
 		return nil, fmt.Errorf("methods iter/read are not supported for non tabular data")
 	}
 	// Inlined resources.
-	if r.Data != nil {
-		switch r.Data.(type) {
+	if r.data != nil {
+		switch r.data.(type) {
 		case string:
-			return csv.NewTable(csv.FromString(r.Data.(string)), opts...)
+			return csv.NewTable(csv.FromString(r.data.(string)), opts...)
 		default:
 			return nil, fmt.Errorf("only csv and string is supported for inlining data")
 		}
 	}
 	// Single-part resources.
-	if len(r.Path) == 1 {
-		p := r.Path[0]
+	if len(r.path) == 1 {
+		p := r.path[0]
 		var source csv.Source
 		if strings.HasPrefix(p, "http") {
 			source = csv.Remote(p)
@@ -120,6 +126,48 @@ func (r *Resource) ReadAll(opts ...csv.CreationOpts) ([][]string, error) {
 		return nil, err
 	}
 	return t.ReadAll()
+}
+
+// Iter returns an Iterator to read the tabular resource. Iter returns an error
+// if the table physical source can not be iterated.
+// The iteration process always start at the beginning of the table.
+func (r *Resource) Iter(opts ...csv.CreationOpts) (table.Iterator, error) {
+	t, err := r.GetTable(opts...)
+	if err != nil {
+		return nil, err
+	}
+	return t.Iter()
+}
+
+// GetSchema returns the schema associated to the resource, if present. The returned
+// schema is based on a copy of the descriptor. Changes to it won't affect the data package
+// descriptor structure.
+func (r *Resource) GetSchema() (schema.Schema, error) {
+	if r.descriptor[schemaProp] == nil {
+		return schema.Schema{}, fmt.Errorf("schema is not declared in the descriptor")
+	}
+	buf, err := json.Marshal(r.descriptor[schemaProp])
+	if err != nil {
+		return schema.Schema{}, err
+	}
+	var s schema.Schema
+	json.Unmarshal(buf, &s)
+	return s, nil
+}
+
+// Cast resource contents.
+// The result argument must necessarily be the address for a slice. The slice
+// may be nil or previously allocated.
+func (r *Resource) Cast(out interface{}, opts ...csv.CreationOpts) error {
+	sch, err := r.GetSchema()
+	if err != nil {
+		return err
+	}
+	tbl, err := r.GetTable(opts...)
+	if err != nil {
+		return err
+	}
+	return sch.CastTable(tbl, out)
 }
 
 // NewResourceWithDefaultRegistry creates a new Resource from the passed-in descriptor.
@@ -149,7 +197,7 @@ func NewResource(d map[string]interface{}, registry validator.Registry) (*Resour
 	}
 	r := Resource{
 		descriptor: cpy,
-		Name:       cpy[nameProp].(string),
+		name:       cpy[nameProp].(string),
 	}
 	pathI := cpy[pathProp]
 	if pathI != nil {
@@ -157,7 +205,7 @@ func NewResource(d map[string]interface{}, registry validator.Registry) (*Resour
 		if err != nil {
 			return nil, err
 		}
-		r.Path = append([]string{}, p...)
+		r.path = append([]string{}, p...)
 		return &r, nil
 	}
 	dataI := cpy[dataProp]
@@ -165,7 +213,7 @@ func NewResource(d map[string]interface{}, registry validator.Registry) (*Resour
 	if err != nil {
 		return nil, err
 	}
-	r.Data = data
+	r.data = data
 	return &r, nil
 }
 
@@ -234,16 +282,16 @@ func parsePath(pathI interface{}, d map[string]interface{}) ([]string, error) {
 
 // NewUncheckedResource returns an Resource instance based on the descriptor without any verification. The returned Resource might
 // not be valid.
-func NewUncheckedResource(d map[string]interface{}) (*Resource, error) {
+func NewUncheckedResource(d map[string]interface{}) *Resource {
 	r := &Resource{descriptor: d}
 	nI, ok := d["name"]
 	if ok {
 		nStr, ok := nI.(string)
 		if ok {
-			r.Name = nStr
+			r.name = nStr
 		}
 	}
-	return r, nil
+	return r
 }
 
 // NewResourceFromString creates a new Resource from the passed-in JSON descriptor, if valid. The
