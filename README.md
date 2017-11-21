@@ -5,9 +5,9 @@ A Go library for working with [Data Packages](http://specs.frictionlessdata.io/d
 
 ## Features
 
-* [pkg.Package](https://godoc.org/github.com/frictionlessdata/datapackage-go/pkg#Package) class for working with data packages
-* [Resource](https://godoc.org/github.com/frictionlessdata/datapackage-go/pkg#Resource) class for working with data resources
-* [Valid](https://godoc.org/github.com/frictionlessdata/datapackage-go/pkg#Valid) function for validating data package descriptors
+* [Package](https://godoc.org/github.com/frictionlessdata/datapackage-go/datapackage#Package) class for working with data packages
+* [Resource](https://godoc.org/github.com/frictionlessdata/datapackage-go/datapackage#Resource) class for working with data resources
+* [Valid](https://godoc.org/github.com/frictionlessdata/datapackage-go/validator#IsValid) function for validating data package descriptors
 
 ## Getting started
 
@@ -35,25 +35,22 @@ Code examples in this readme requires Go 1.8+. You could see even more example i
 
 ```go
 descriptor := `
-	{
-		"name": "remote_datapackage",
-		"resources": [
-		  {
-			"name": "example",
-			"format": "csv",
-			"data": "height,age,name\n180,18,Tony\n192,32,Jacob",
-			"profile":"tabular-data-resource",
-			"schema": {
-			  "fields": [
-				  {"name":"height", "type":"integer"},
-				  {"name":"age", "type":"integer"},
-				  {"name":"name", "type":"string"}
-			  ]
-			}
-		  }
-		]
-	}
-	`
+{
+    "name": "remote_datapackage",
+    "resources": [{
+        "name": "example",
+        "format": "csv",
+        "data": "height,age,name\n180,18,Tony\n192,32,Jacob",
+        "profile":"tabular-data-resource",
+        "schema": {
+            "fields": [
+                {"name":"height", "type":"integer"},
+                {"name":"age", "type":"integer"},
+                {"name":"name", "type":"string"}
+            ]
+        }
+    }]
+}`
 pkg, err := FromString(descriptor)
 if err != nil {
     panic(err)
@@ -128,11 +125,11 @@ type Population struct {
 
 var cities []Population
 resource.Cast(&cities, csv.LoadHeaders())
-fmt.Printf("+v", )
+fmt.Printf("+v", cities)
 // [{City:london Year:2017 Population:8780000} {City:paris Year:2017 Population:2240000} {City:rome Year:2017 Population:2860000}]
 ```
 
-Finally, if the data is to big to be loaded at once, or if you would like to perform line-by-line processing you could iterate through the resource contents:
+Finally, if the data is to big to be loaded at once or if you would like to perform line-by-line processing, you could iterate through the resource contents:
 
 ```go
 iter, _ := resource.Iter(csv.LoadHeaders())
