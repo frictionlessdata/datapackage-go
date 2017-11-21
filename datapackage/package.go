@@ -110,8 +110,10 @@ func (p *Package) RemoveResource(name string) {
 }
 
 // Descriptor returns a deep copy of the underlying descriptor which describes the package.
-func (p *Package) Descriptor() (map[string]interface{}, error) {
-	return clone.Descriptor(p.descriptor)
+func (p *Package) Descriptor() map[string]interface{} {
+	// Package cescriptor is always valid. Don't need to make the interface overcomplicated.
+	c, _ := clone.Descriptor(p.descriptor)
+	return c
 }
 
 // Update the package with the passed-in descriptor. The package will only be updated if the

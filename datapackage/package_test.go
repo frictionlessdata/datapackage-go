@@ -96,8 +96,7 @@ func TestPackage_Resources(t *testing.T) {
 func TestPackage_Descriptor(t *testing.T) {
 	is := is.New(t)
 	pkg, _ := New(map[string]interface{}{"resources": []interface{}{r1}}, validator.InMemoryLoader())
-	cpy, err := pkg.Descriptor()
-	is.NoErr(err)
+	cpy := pkg.Descriptor()
 	is.Equal(pkg.descriptor, cpy)
 }
 
@@ -107,8 +106,7 @@ func TestPackage_Update(t *testing.T) {
 		pkg, _ := New(map[string]interface{}{"resources": []interface{}{r1}}, validator.InMemoryLoader())
 		newDesc := map[string]interface{}{"resources": []interface{}{r2}}
 		is.NoErr(pkg.Update(newDesc, validator.InMemoryLoader()))
-		d, _ := pkg.Descriptor()
-		is.Equal(d, map[string]interface{}{"profile": "data-package", "resources": []interface{}{r2Filled}})
+		is.Equal(pkg.Descriptor(), map[string]interface{}{"profile": "data-package", "resources": []interface{}{r2Filled}})
 	})
 	t.Run("InvalidResource", func(t *testing.T) {
 		pkg, _ := New(map[string]interface{}{"resources": []interface{}{r1}}, validator.InMemoryLoader())

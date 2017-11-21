@@ -205,8 +205,7 @@ func TestResource_Descriptor(t *testing.T) {
 	r, err := NewResource(r1, validator.MustInMemoryRegistry())
 	is.NoErr(err)
 
-	cpy, err := r.Descriptor()
-	is.NoErr(err)
+	cpy := r.Descriptor()
 	is.Equal(r.descriptor, cpy)
 
 	// Checking if modifying the copy would not affect the source.
@@ -222,8 +221,7 @@ func TestResource_Update(t *testing.T) {
 		r, err := NewResource(r1, validator.MustInMemoryRegistry())
 		is.NoErr(err)
 		is.NoErr(r.Update(r2, validator.InMemoryLoader()))
-		desc, _ := r.Descriptor()
-		is.Equal(desc, r2Filled)
+		is.Equal(r.Descriptor(), r2Filled)
 	})
 	t.Run("Invalid", func(t *testing.T) {
 		is := is.New(t)

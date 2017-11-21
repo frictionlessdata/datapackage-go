@@ -58,8 +58,10 @@ func (r *Resource) Name() string {
 }
 
 // Descriptor returns a copy of the underlying descriptor which describes the resource.
-func (r *Resource) Descriptor() (map[string]interface{}, error) {
-	return clone.Descriptor(r.descriptor)
+func (r *Resource) Descriptor() map[string]interface{} {
+	// Resource cescriptor is always valid. Don't need to make the interface overcomplicated.
+	c, _ := clone.Descriptor(r.descriptor)
+	return c
 }
 
 // Update the resource with the passed-in descriptor. The resource will only be updated if the
