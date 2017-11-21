@@ -167,6 +167,11 @@ func FromReader(r io.Reader, loaders ...validator.RegistryLoader) (*Package, err
 	return New(descriptor, loaders...)
 }
 
+// FromString creates a data package from a string representation of the package descriptor.
+func FromString(in string, loaders ...validator.RegistryLoader) (*Package, error) {
+	return FromReader(strings.NewReader(in))
+}
+
 // Load the data package descriptor from the specified URL or file path.
 func Load(p string, loaders ...validator.RegistryLoader) (*Package, error) {
 	var contents string

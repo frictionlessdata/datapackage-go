@@ -8,8 +8,40 @@ import (
 	"testing"
 
 	"github.com/frictionlessdata/datapackage-go/validator"
+	"github.com/frictionlessdata/tableschema-go/csv"
 	"github.com/matryer/is"
 )
+
+func ExampleResource_ReadAll() {
+	descriptor := `
+	{
+		"name": "remote_datapackage",
+		"resources": [
+		  {
+			"name": "example",
+			"format": "csv",
+			"data": "height,age,name\n180,18,Tony\n192,32,Jacob",
+			"profile":"tabular-data-resource",
+			"schema": {
+			  "fields": [
+				  {"name":"height", "type":"integer"},
+				  {"name":"age", "type":"integer"},
+				  {"name":"name", "type":"string"}
+			  ]
+			}
+		  }
+		]
+	}
+	`
+	pkg, err := FromString(descriptor, validator.InMemoryLoader())
+	if err != nil {
+		panic(err)
+	}
+	res := pkg.GetResource("example")
+	contents, _ := res.ReadAll(csv.LoadHeaders())
+	fmt.Println(contents)
+	// Output: [[180 18 Tony] [192 32 Jacob]]
+}
 
 func ExampleNewResourceWithDefaultRegistry() {
 	res, _ := NewResourceWithDefaultRegistry(r1)
@@ -227,7 +259,7 @@ func TestResource_ReadAll(t *testing.T) {
 		is.NoErr(err)
 		is.Equal(contents, [][]string{{"name"}, {"foo"}})
 	})
-	t.Run("InlineData", func(t *testing.T) {
+	t.Run("InvalidProfileType", func(t *testing.T) {
 		r1, _ := NewUncheckedResource(map[string]interface{}{"profile": "data-resource"})
 		_, err := r1.ReadAll()
 		if err == nil {

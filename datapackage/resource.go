@@ -92,7 +92,7 @@ func (r *Resource) GetTable(opts ...csv.CreationOpts) (table.Table, error) {
 		case string:
 			return csv.NewTable(csv.FromString(r.Data.(string)), opts...)
 		default:
-			return nil, fmt.Errorf("only inline data as strings is supported")
+			return nil, fmt.Errorf("only csv and string is supported for inlining data")
 		}
 	}
 	// Single-part resources.

@@ -28,3 +28,38 @@ $ dep ensure
 ```sh
 $ go get -u github.com/frictionlessdata/datapackage-go/...
 ```
+
+## Example
+
+Code examples in this readme requires Go 1.8+. You could see even more example in [examples](https://github.com/frictionlessdata/datapackage-go/tree/master/examples) directory.
+
+```go
+descriptor := `
+	{
+		"name": "remote_datapackage",
+		"resources": [
+		  {
+			"name": "example",
+			"format": "csv",
+			"data": "height,age,name\n180,18,Tony\n192,32,Jacob",
+			"profile":"tabular-data-resource",
+			"schema": {
+			  "fields": [
+				  {"name":"height", "type":"integer"},
+				  {"name":"age", "type":"integer"},
+				  {"name":"name", "type":"string"}
+			  ]
+			}
+		  }
+		]
+	}
+	`
+	pkg, err := FromString(descriptor)
+	if err != nil {
+		panic(err)
+	}
+	res := pkg.GetResource("example")
+	contents, _ := res.ReadAll(csv.LoadHeaders())
+	fmt.Println(contents)
+	// Output: [[180 18 Tony] [192 32 Jacob]]
+```
