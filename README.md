@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/frictionlessdata/datapackage-go.svg?branch=master)](https://travis-ci.org/frictionlessdata/datapackage-go) [![Coverage Status](https://coveralls.io/repos/github/frictionlessdata/datapackage-go/badge.svg?branch=master)](https://coveralls.io/github/frictionlessdata/datapackage-go?branch=master) [![Go Report Card](https://goreportcard.com/badge/github.com/frictionlessdata/datapackage-go)](https://goreportcard.com/report/github.com/frictionlessdata/datapackage-go) [![Gitter chat](https://badges.gitter.im/gitterHQ/gitter.png)](https://gitter.im/frictionlessdata/chat) [![GoDoc](https://godoc.org/github.com/frictionlessdata/datapackage-go?status.svg)](https://godoc.org/github.com/frictionlessdata/datapackage-go/pkg)
+[![Build Status](https://travis-ci.org/frictionlessdata/datapackage-go.svg?branch=master)](https://travis-ci.org/frictionlessdata/datapackage-go) [![Coverage Status](https://coveralls.io/repos/github/frictionlessdata/datapackage-go/badge.svg?branch=master)](https://coveralls.io/github/frictionlessdata/datapackage-go?branch=master) [![Go Report Card](https://goreportcard.com/badge/github.com/frictionlessdata/datapackage-go)](https://goreportcard.com/report/github.com/frictionlessdata/datapackage-go) [![Gitter chat](https://badges.gitter.im/gitterHQ/gitter.png)](https://gitter.im/frictionlessdata/chat) [![GoDoc](https://godoc.org/github.com/frictionlessdata/datapackage-go?status.svg)](https://godoc.org/github.com/frictionlessdata/datapackage-go)
 
 # datapackage-go
 A Go library for working with [Data Packages](http://specs.frictionlessdata.io/data-package/).
@@ -102,8 +102,10 @@ Let's create a data package based on this data using the [datapackage.Package](h
 
 ```go
 pkg, err := datapackage.Load("data/datapackage.json")
-// Error validation.
+// Check error.
 ```
+
+> The [datapackage.Load](https://godoc.org/github.com/frictionlessdata/datapackage-go/datapackage#Load) function also works for remote and zip file packages. Please check the [load_zip example](https://github.com/frictionlessdata/datapackage-go/tree/master/examples/load_zip).
 
 Once the data package is loaded, we could use the [datapackage.Resource](https://godoc.org/github.com/frictionlessdata/datapackage-go/datapackage#Resource) class to read data resource's contents:
 
@@ -142,4 +144,57 @@ for iter.Next() {
 // {City:london Year:2017 Population:8780000
 // {City:paris Year:2017 Population:2240000}
 // {City:rome Year:2017 Population:2860000}]
+```
+
+### Manipulating data packages
+
+The datapackage-go library also makes it easy to save packages. Let's say you're creating a program that produces data packages and would like to add or remove resource:
+
+```go
+	descriptor := map[string]interface{}{
+		"resources": []interface{}{
+			map[string]interface{}{
+				"name":    "books",
+				"path":    "books.csv",
+				"format":  "csv",
+				"profile": "tabular-data-resource",
+				"schema": map[string]interface{}{
+					"fields": []interface{}{
+						map[string]interface{}{"name": "author", "type": "string"},
+						map[string]interface{}{"name": "title", "type": "string"},
+						map[string]interface{}{"name": "year", "type": "integer"},
+					},
+				},
+			},
+		},
+	}
+	pkg, err := datapackage.New(descriptor, ".", validator.InMemoryLoader())
+	if err != nil {
+		panic(err)
+    }
+    pkg.RemoveResource("books")
+	pkg.AddResource(map[string]interface{}{
+		"name":    "cities",
+		"path":    "cities.csv",
+		"format":  "csv",
+		"profile": "tabular-data-resource",
+		"schema": map[string]interface{}{
+			"fields": []interface{}{
+				map[string]interface{}{"name": "author", "type": "string"},
+				map[string]interface{}{"name": "title", "type": "string"},
+				map[string]interface{}{"name": "year", "type": "integer"},
+			},
+		},
+	})
+    cities, _ := pkg.GetResource("cities").ReadAll()
+    fmt.Println(cities)
+    // [[london 2017 8780000] [paris 2017 2240000] [rome 20172860000]]
+```
+
+### Creating a zip bundle with the data package.
+
+You could also easily create a zip file containing the descriptor and all the data resources, which could loaded afterwards:
+
+```go
+pkg.Zip("cities.zip")
 ```

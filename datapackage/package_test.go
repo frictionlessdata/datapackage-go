@@ -1,9 +1,15 @@
 package datapackage
 
 import (
+	"archive/zip"
+	"bytes"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -14,12 +20,71 @@ import (
 var invalidResource = map[string]interface{}{"name": "res1"}
 var r1 = map[string]interface{}{"name": "res1", "path": "foo.csv"}
 var r1Filled = map[string]interface{}{"name": "res1", "path": "foo.csv", "profile": "data-resource", "encoding": "utf-8"}
+var r1Str = `{
+  "profile": "data-package",
+  "resources": [
+    {
+      "encoding": "utf-8",
+      "name": "res1",
+      "path": "foo.csv",
+      "profile": "data-resource"
+    }
+  ]
+}`
 var r2 = map[string]interface{}{"name": "res2", "path": "bar.csv"}
 var r2Filled = map[string]interface{}{"name": "res2", "path": "bar.csv", "profile": "data-resource", "encoding": "utf-8"}
 
+func ExampleLoad_readAll() {
+	dir, _ := ioutil.TempDir("", "datapackage_exampleload")
+	defer os.Remove(dir)
+	descriptorPath := filepath.Join(dir, "pkg.json")
+	descriptorContents := `{"resources": [{ 
+		  "name": "res1",
+		  "path": "data.csv",
+		  "profile": "tabular-data-resource",
+		  "schema": {"fields": [{"name":"name", "type":"string"}]}
+		}]}`
+	ioutil.WriteFile(descriptorPath, []byte(descriptorContents), 0666)
+
+	resPath := filepath.Join(dir, "data.csv")
+	resContent := []byte("foo\nbar")
+	ioutil.WriteFile(resPath, resContent, 0666)
+
+	pkg, _ := Load(descriptorPath, validator.InMemoryLoader())
+	contents, _ := pkg.GetResource("res1").ReadAll()
+	fmt.Println(contents)
+	// Output: [[foo] [bar]]
+}
+
+func ExampleLoad_cast() {
+	dir, _ := ioutil.TempDir("", "datapackage_exampleload")
+	defer os.Remove(dir)
+	descriptorPath := filepath.Join(dir, "pkg.json")
+	descriptorContents := `{"resources": [{ 
+		  "name": "res1",
+		  "path": "data.csv",
+		  "profile": "tabular-data-resource",
+		  "schema": {"fields": [{"name":"name", "type":"string"}]}
+		}]}`
+	ioutil.WriteFile(descriptorPath, []byte(descriptorContents), 0666)
+
+	resPath := filepath.Join(dir, "data.csv")
+	resContent := []byte("foo\nbar")
+	ioutil.WriteFile(resPath, resContent, 0666)
+
+	pkg, _ := Load(descriptorPath, validator.InMemoryLoader())
+	res := pkg.GetResource("res1")
+	people := []struct {
+		Name string `tableheader:"name"`
+	}{}
+	res.Cast(&people)
+	fmt.Printf("%+v", people)
+	// Output: [{Name:foo} {Name:bar}]
+}
+
 func TestPackage_GetResource(t *testing.T) {
 	is := is.New(t)
-	pkg, err := New(map[string]interface{}{"resources": []interface{}{r1}}, validator.InMemoryLoader())
+	pkg, err := New(map[string]interface{}{"resources": []interface{}{r1}}, ".", validator.InMemoryLoader())
 	is.NoErr(err)
 	is.Equal(pkg.GetResource("res1").name, "res1")
 	is.True(pkg.GetResource("foooooo") == nil)
@@ -28,7 +93,7 @@ func TestPackage_GetResource(t *testing.T) {
 func TestPackage_AddResource(t *testing.T) {
 	t.Run("ValidDescriptor", func(t *testing.T) {
 		is := is.New(t)
-		pkg, _ := New(map[string]interface{}{"resources": []interface{}{r1}}, validator.InMemoryLoader())
+		pkg, _ := New(map[string]interface{}{"resources": []interface{}{r1}}, ".", validator.InMemoryLoader())
 		is.NoErr(pkg.AddResource(r2))
 
 		// Checking resources.
@@ -43,7 +108,7 @@ func TestPackage_AddResource(t *testing.T) {
 		is.Equal(resDesc[1], r2Filled)
 	})
 	t.Run("InvalidResource", func(t *testing.T) {
-		pkg, _ := New(map[string]interface{}{"resources": []interface{}{r1}}, validator.InMemoryLoader())
+		pkg, _ := New(map[string]interface{}{"resources": []interface{}{r1}}, ".", validator.InMemoryLoader())
 		if err := pkg.AddResource(invalidResource); err == nil {
 			t.Fatalf("want:err got:nil")
 		}
@@ -53,7 +118,7 @@ func TestPackage_AddResource(t *testing.T) {
 func TestPackage_RemoveResource(t *testing.T) {
 	t.Run("Existing", func(t *testing.T) {
 		is := is.New(t)
-		pkg, _ := New(map[string]interface{}{"resources": []interface{}{r1, r2}}, validator.InMemoryLoader())
+		pkg, _ := New(map[string]interface{}{"resources": []interface{}{r1, r2}}, ".", validator.InMemoryLoader())
 		pkg.RemoveResource("res1")
 
 		resDesc := pkg.descriptor["resources"].([]interface{})
@@ -64,7 +129,7 @@ func TestPackage_RemoveResource(t *testing.T) {
 	})
 	t.Run("NonExisting", func(t *testing.T) {
 		is := is.New(t)
-		pkg, _ := New(map[string]interface{}{"resources": []interface{}{r1}}, validator.InMemoryLoader())
+		pkg, _ := New(map[string]interface{}{"resources": []interface{}{r1}}, ".", validator.InMemoryLoader())
 		pkg.RemoveResource("invalid")
 
 		resDesc := pkg.descriptor["resources"].([]interface{})
@@ -77,13 +142,13 @@ func TestPackage_RemoveResource(t *testing.T) {
 
 func TestPackage_ResourceNames(t *testing.T) {
 	is := is.New(t)
-	pkg, _ := New(map[string]interface{}{"resources": []interface{}{r1, r2}}, validator.InMemoryLoader())
+	pkg, _ := New(map[string]interface{}{"resources": []interface{}{r1, r2}}, ".", validator.InMemoryLoader())
 	is.Equal(pkg.ResourceNames(), []string{"res1", "res2"})
 }
 
 func TestPackage_Resources(t *testing.T) {
 	is := is.New(t)
-	pkg, _ := New(map[string]interface{}{"resources": []interface{}{r1, r2}}, validator.InMemoryLoader())
+	pkg, _ := New(map[string]interface{}{"resources": []interface{}{r1, r2}}, ".", validator.InMemoryLoader())
 	resources := pkg.Resources()
 	is.Equal(resources[0].name, "res1")
 	is.Equal(resources[1].name, "res2")
@@ -95,7 +160,7 @@ func TestPackage_Resources(t *testing.T) {
 
 func TestPackage_Descriptor(t *testing.T) {
 	is := is.New(t)
-	pkg, _ := New(map[string]interface{}{"resources": []interface{}{r1}}, validator.InMemoryLoader())
+	pkg, _ := New(map[string]interface{}{"resources": []interface{}{r1}}, ".", validator.InMemoryLoader())
 	cpy := pkg.Descriptor()
 	is.Equal(pkg.descriptor, cpy)
 }
@@ -103,13 +168,13 @@ func TestPackage_Descriptor(t *testing.T) {
 func TestPackage_Update(t *testing.T) {
 	t.Run("ValidResource", func(t *testing.T) {
 		is := is.New(t)
-		pkg, _ := New(map[string]interface{}{"resources": []interface{}{r1}}, validator.InMemoryLoader())
+		pkg, _ := New(map[string]interface{}{"resources": []interface{}{r1}}, ".", validator.InMemoryLoader())
 		newDesc := map[string]interface{}{"resources": []interface{}{r2}}
 		is.NoErr(pkg.Update(newDesc, validator.InMemoryLoader()))
 		is.Equal(pkg.Descriptor(), map[string]interface{}{"profile": "data-package", "resources": []interface{}{r2Filled}})
 	})
 	t.Run("InvalidResource", func(t *testing.T) {
-		pkg, _ := New(map[string]interface{}{"resources": []interface{}{r1}}, validator.InMemoryLoader())
+		pkg, _ := New(map[string]interface{}{"resources": []interface{}{r1}}, ".", validator.InMemoryLoader())
 		newDesc := map[string]interface{}{"resources": []interface{}{invalidResource}}
 		if err := pkg.Update(newDesc, validator.InMemoryLoader()); err == nil {
 			t.Fatalf("want:err got:nil")
@@ -132,7 +197,7 @@ func TestFromDescriptor(t *testing.T) {
 		}
 		for _, d := range data {
 			t.Run(d.desc, func(t *testing.T) {
-				if _, err := New(d.descriptor, validator.InMemoryLoader()); err == nil {
+				if _, err := New(d.descriptor, ".", validator.InMemoryLoader()); err == nil {
 					t.Fatalf("want:err got:nil")
 				}
 			})
@@ -140,7 +205,7 @@ func TestFromDescriptor(t *testing.T) {
 	})
 	t.Run("ValidDescriptor", func(t *testing.T) {
 		is := is.New(t)
-		pkg, err := New(map[string]interface{}{"resources": []interface{}{r1}}, validator.InMemoryLoader())
+		pkg, err := New(map[string]interface{}{"resources": []interface{}{r1}}, ".", validator.InMemoryLoader())
 		is.NoErr(err)
 		is.Equal(len(pkg.resources), 1)
 		is.Equal(pkg.resources[0].name, "res1")
@@ -150,34 +215,198 @@ func TestFromDescriptor(t *testing.T) {
 	})
 }
 
+func TestPackage_SaveDescriptor(t *testing.T) {
+	t.Run("Valid", func(t *testing.T) {
+		is := is.New(t)
+
+		// Creating temporary empty directory and making sure we remove it.
+		dir, err := ioutil.TempDir("", "datapackage_save")
+		is.NoErr(err)
+		defer os.Remove(dir)
+		fName := filepath.Join(dir, "pkg.json")
+
+		// Saving package descriptor.
+		pkg, _ := New(map[string]interface{}{"resources": []interface{}{r1}}, ".", validator.InMemoryLoader())
+		is.NoErr(pkg.SaveDescriptor(fName))
+
+		// Checking descriptor contents.
+		buf, err := ioutil.ReadFile(fName)
+		is.NoErr(err)
+		is.Equal(string(buf), r1Str)
+	})
+}
+
+func TestPackage_Zip(t *testing.T) {
+	t.Run("Valid", func(t *testing.T) {
+		is := is.New(t)
+
+		// Creating temporary empty file and making sure we remote it.
+		dir, err := ioutil.TempDir("", "datapackage_testzip")
+		is.NoErr(err)
+		defer os.Remove(dir)
+		fName := filepath.Join(dir, "pkg.zip")
+
+		// Creating contents and zipping package.
+		descriptorContents := `{"resources": [{ 
+			"name": "res1",
+			"path": "data.csv",
+			"profile": "tabular-data-resource",
+			"schema": {"fields": [{"name":"name", "type":"string"}]}
+		  }]}`
+		pkg, _ := FromString(descriptorContents, dir, validator.InMemoryLoader())
+		fmt.Println(pkg.Descriptor())
+
+		resPath := filepath.Join(dir, "data.csv")
+		resContents := []byte("foo\nbar")
+		ioutil.WriteFile(resPath, resContents, 0666)
+		is.NoErr(pkg.Zip(fName))
+
+		// Checking zip contents.
+		reader, err := zip.OpenReader(fName)
+		is.NoErr(err)
+		defer reader.Close()
+		is.Equal(2, len(reader.File))
+
+		var buf bytes.Buffer
+		descriptor, err := reader.File[0].Open()
+		is.NoErr(err)
+		defer descriptor.Close()
+		io.Copy(&buf, descriptor)
+
+		filledDescriptor := `{
+  "profile": "data-package",
+  "resources": [
+    {
+      "encoding": "utf-8",
+      "name": "res1",
+      "path": "data.csv",
+      "profile": "tabular-data-resource",
+      "schema": {
+        "fields": [
+          {
+            "name": "name",
+            "type": "string"
+          }
+        ]
+      }
+    }
+  ]
+}`
+		is.Equal(buf.String(), filledDescriptor)
+
+		buf.Reset()
+		data, err := reader.File[1].Open()
+		is.NoErr(err)
+		defer data.Close()
+		io.Copy(&buf, data)
+		is.Equal(buf.String(), string(resContents))
+	})
+}
 func TestFromReader(t *testing.T) {
 	t.Run("ValidJSON", func(t *testing.T) {
 		is := is.New(t)
-		_, err := FromReader(strings.NewReader(`{"resources":[{"name":"res", "path":"foo.csv"}]}`), validator.InMemoryLoader())
+		_, err := FromReader(strings.NewReader(`{"resources":[{"name":"res", "path":"foo.csv"}]}`), ".", validator.InMemoryLoader())
 		is.NoErr(err)
 	})
 	t.Run("InvalidJSON", func(t *testing.T) {
 		is := is.New(t)
-		_, err := FromReader(strings.NewReader(`{resources}`), validator.InMemoryLoader())
+		_, err := FromReader(strings.NewReader(`{resources}`), ".", validator.InMemoryLoader())
 		is.True(err != nil)
 	})
 }
 
 func TestLoad(t *testing.T) {
-	t.Run("ValidURL", func(t *testing.T) {
+	is := is.New(t)
+	// Creating temporary empty directory and making sure we remove it.
+	dir, err := ioutil.TempDir("", "datapackage_load")
+	is.NoErr(err)
+	defer os.Remove(dir)
+
+	t.Run("Local", func(t *testing.T) {
 		is := is.New(t)
-		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			fmt.Fprintln(w, `{"resources":[{"name":"res", "path":"foo.csv"}]}`)
-		}))
-		defer ts.Close()
-		pkg, err := Load(ts.URL, validator.InMemoryLoader())
+		fName := filepath.Join(dir, "pkg.json")
+		is.NoErr(ioutil.WriteFile(fName, []byte(r1Str), 0666))
+		defer os.Remove(fName)
+
+		pkg, err := Load(fName, validator.InMemoryLoader())
 		is.NoErr(err)
-		res := pkg.GetResource("res")
-		is.Equal(res.name, "res")
+		res := pkg.GetResource("res1")
+		is.Equal(res.name, "res1")
 		is.Equal(res.path, []string{"foo.csv"})
 	})
-	t.Run("ValidURL", func(t *testing.T) {
+	t.Run("LocalZip", func(t *testing.T) {
+		is := is.New(t)
+		// Creating a zip file.
+		fName := filepath.Join(dir, "pkg.zip")
+		zipFile, err := os.Create(fName)
+		is.NoErr(err)
+		defer zipFile.Close()
+
+		// Adding a datapackage.json file to the zip with proper contents.
+		w := zip.NewWriter(zipFile)
+		f, err := w.Create("datapackage.json")
+		is.NoErr(err)
+		_, err = f.Write([]byte(r1Str))
+		is.NoErr(err)
+		is.NoErr(w.Close())
+
+		// Load and check package.
+		pkg, err := Load(fName, validator.InMemoryLoader())
+		is.NoErr(err)
+		res := pkg.GetResource("res1")
+		is.Equal(res.name, "res1")
+		is.Equal(res.path, []string{"foo.csv"})
+	})
+	t.Run("Remote", func(t *testing.T) {
+		is := is.New(t)
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprintln(w, r1Str)
+		}))
+		defer ts.Close()
+
+		pkg, err := Load(ts.URL, validator.InMemoryLoader())
+		is.NoErr(err)
+		res := pkg.GetResource("res1")
+		is.Equal(res.name, "res1")
+		is.Equal(res.path, []string{"foo.csv"})
+	})
+	t.Run("InvalidPath", func(t *testing.T) {
 		_, err := Load("foobar", validator.InMemoryLoader())
+		if err == nil {
+			t.Fatalf("want:err got:nil")
+		}
+	})
+	t.Run("InvalidZipFile", func(t *testing.T) {
+		is := is.New(t)
+		// Creating an empty zip file.
+		fName := filepath.Join(dir, "pkg.zip")
+		zipFile, err := os.Create(fName)
+		is.NoErr(err)
+		defer zipFile.Close()
+		// Asserting error.
+		_, err = Load(fName, validator.InMemoryLoader())
+		if err == nil {
+			t.Fatalf("want:err got:nil")
+		}
+	})
+	t.Run("InvalidZipFileNameInContent", func(t *testing.T) {
+		is := is.New(t)
+		// Creating a zip file.
+		fName := filepath.Join(dir, "pkg.zip")
+		zipFile, err := os.Create(fName)
+		is.NoErr(err)
+		defer zipFile.Close()
+
+		// Adding a file to the zip with proper contents.
+		w := zip.NewWriter(zipFile)
+		f, err := w.Create("otherpackage.json")
+		is.NoErr(err)
+		_, err = f.Write([]byte(r1Str))
+		is.NoErr(err)
+		is.NoErr(w.Close())
+
+		// Asserting error.
+		_, err = Load(fName, validator.InMemoryLoader())
 		if err == nil {
 			t.Fatalf("want:err got:nil")
 		}

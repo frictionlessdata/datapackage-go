@@ -8,76 +8,8 @@ import (
 	"testing"
 
 	"github.com/frictionlessdata/datapackage-go/validator"
-	"github.com/frictionlessdata/tableschema-go/csv"
 	"github.com/matryer/is"
 )
-
-func ExampleResource_ReadAll() {
-	descriptor := `
-	{
-		"name": "remote_datapackage",
-		"resources": [
-		  {
-			"name": "example",
-			"format": "csv",
-			"data": "height,age,name\n180,18,Tony\n192,32,Jacob",
-			"profile":"tabular-data-resource",
-			"schema": {
-			  "fields": [
-				  {"name":"height", "type":"integer"},
-				  {"name":"age", "type":"integer"},
-				  {"name":"name", "type":"string"}
-			  ]
-			}
-		  }
-		]
-	}
-	`
-	pkg, err := FromString(descriptor, validator.InMemoryLoader())
-	if err != nil {
-		panic(err)
-	}
-	res := pkg.GetResource("example")
-	contents, _ := res.ReadAll(csv.LoadHeaders())
-	fmt.Println(contents)
-	// Output: [[180 18 Tony] [192 32 Jacob]]
-}
-
-func ExampleResource_Cast() {
-	descriptor := `
-	{
-		"name": "remote_datapackage",
-		"resources": [
-		  {
-			"name": "example",
-			"format": "csv",
-			"data": "height,age,name\n180,18,Tony\n192,32,Jacob",
-			"profile":"tabular-data-resource",
-			"schema": {
-			  "fields": [
-				  {"name":"Height", "type":"integer"},
-				  {"name":"Age", "type":"integer"},
-				  {"name":"Name", "type":"string"}
-			  ]
-			}
-		  }
-		]
-	}
-	`
-	pkg, err := FromString(descriptor, validator.InMemoryLoader())
-	if err != nil {
-		panic(err)
-	}
-	res := pkg.GetResource("example")
-	people := []struct {
-		Height int
-		Age    int
-		Name   string
-	}{}
-	res.Cast(&people, csv.LoadHeaders())
-	fmt.Printf("%+v", people)
-	// Output: [{Height:180 Age:18 Name:Tony} {Height:192 Age:32 Name:Jacob}]
-}
 
 func ExampleNewResourceWithDefaultRegistry() {
 	res, _ := NewResourceWithDefaultRegistry(r1)

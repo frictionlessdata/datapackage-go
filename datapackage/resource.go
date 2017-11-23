@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/frictionlessdata/datapackage-go/clone"
@@ -50,6 +51,7 @@ type Resource struct {
 	path       []string
 	data       interface{}
 	name       string
+	basePath   string
 }
 
 // Name returns the resource name.
@@ -106,6 +108,9 @@ func (r *Resource) GetTable(opts ...csv.CreationOpts) (table.Table, error) {
 	// Single-part resources.
 	if len(r.path) == 1 {
 		p := r.path[0]
+		if r.basePath != "" {
+			p = filepath.Join(r.basePath, p)
+		}
 		var source csv.Source
 		if strings.HasPrefix(p, "http") {
 			source = csv.Remote(p)
