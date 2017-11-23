@@ -151,44 +151,44 @@ for iter.Next() {
 The datapackage-go library also makes it easy to save packages. Let's say you're creating a program that produces data packages and would like to add or remove resource:
 
 ```go
-	descriptor := map[string]interface{}{
-		"resources": []interface{}{
-			map[string]interface{}{
-				"name":    "books",
-				"path":    "books.csv",
-				"format":  "csv",
-				"profile": "tabular-data-resource",
-				"schema": map[string]interface{}{
-					"fields": []interface{}{
-						map[string]interface{}{"name": "author", "type": "string"},
-						map[string]interface{}{"name": "title", "type": "string"},
-						map[string]interface{}{"name": "year", "type": "integer"},
-					},
-				},
-			},
-		},
-	}
-	pkg, err := datapackage.New(descriptor, ".", validator.InMemoryLoader())
-	if err != nil {
-		panic(err)
-    }
-    pkg.RemoveResource("books")
-	pkg.AddResource(map[string]interface{}{
-		"name":    "cities",
-		"path":    "cities.csv",
-		"format":  "csv",
-		"profile": "tabular-data-resource",
-		"schema": map[string]interface{}{
-			"fields": []interface{}{
-				map[string]interface{}{"name": "author", "type": "string"},
-				map[string]interface{}{"name": "title", "type": "string"},
-				map[string]interface{}{"name": "year", "type": "integer"},
-			},
-		},
-	})
-    cities, _ := pkg.GetResource("cities").ReadAll()
-    fmt.Println(cities)
-    // [[london 2017 8780000] [paris 2017 2240000] [rome 20172860000]]
+descriptor := map[string]interface{}{
+    "resources": []interface{}{
+        map[string]interface{}{
+            "name":    "books",
+            "path":    "books.csv",
+            "format":  "csv",
+            "profile": "tabular-data-resource",
+            "schema": map[string]interface{}{
+                "fields": []interface{}{
+                    map[string]interface{}{"name": "author", "type": "string"},
+                    map[string]interface{}{"name": "title", "type": "string"},
+                    map[string]interface{}{"name": "year", "type": "integer"},
+                },
+            },
+        },
+    },
+}
+pkg, err := datapackage.New(descriptor, ".", validator.InMemoryLoader())
+if err != nil {
+    panic(err)
+}
+pkg.RemoveResource("books")
+pkg.AddResource(map[string]interface{}{
+    "name":    "cities",
+    "path":    "cities.csv",
+    "format":  "csv",
+    "profile": "tabular-data-resource",
+    "schema": map[string]interface{}{
+        "fields": []interface{}{
+            map[string]interface{}{"name": "author", "type": "string"},
+            map[string]interface{}{"name": "title", "type": "string"},
+            map[string]interface{}{"name": "year", "type": "integer"},
+        },
+    },
+})
+cities, _ := pkg.GetResource("cities").ReadAll()
+fmt.Println(cities)
+// [[london 2017 8780000] [paris 2017 2240000] [rome 20172860000]]
 ```
 
 ### Creating a zip bundle with the data package.
