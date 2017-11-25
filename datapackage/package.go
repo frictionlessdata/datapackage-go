@@ -236,6 +236,7 @@ func New(descriptor map[string]interface{}, basePath string, loaders ...validato
 		return nil, err
 	}
 	fillPackageDescriptorWithDefaultValues(cpy)
+	loadPackageSchemas(cpy)
 	profile, ok := cpy[profilePropName].(string)
 	if !ok {
 		return nil, fmt.Errorf("%s property MUST be a string", profilePropName)
@@ -368,6 +369,27 @@ func fillPackageDescriptorWithDefaultValues(descriptor map[string]interface{}) {
 			}
 		}
 	}
+}
+
+func loadPackageSchemas(d map[string]interface{}) error {
+	var err error
+	if schStr, ok := d[schemaProp].(string); ok {
+		d[schemaProp], err = loadSchema(schStr)
+		if err != nil {
+			return err
+		}
+	}
+	resources, _ := d[resourcePropName].([]interface{})
+	for _, r := range resources {
+		resMap, _ := r.(map[string]interface{})
+		if schStr, ok := resMap[schemaProp].(string); ok {
+			resMap[schemaProp], err = loadSchema(schStr)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func buildResources(resI interface{}, basePath string, reg validator.Registry) ([]*Resource, error) {

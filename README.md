@@ -174,6 +174,39 @@ One could easily parse by adding following `dialect` property to the `world` res
 }
 ```
 
+A complete example can be found [here](https://github.com/frictionlessdata/datapackage-go/tree/master/examples/load).
+
+#### Multipart resources
+
+Sometimes you have data scattered across many local or remote files. Datapackage-go offers an easy way you to deal all those file as one big
+file. We call it multipart resources. To use this feature, simply list your files in the `path` property of the resource. For example, lets
+say our population data is now split between north and south hemispheres. To deal with this, we only need change to change the package descriptor:
+
+> data/datapackage.json
+```json
+{
+    "name": "world",
+    "resources": [
+      {
+        "name": "population",
+        "path": ["north.csv","south.csv"],
+        "profile":"tabular-data-resource",
+        "schema": {
+          "fields": [
+            {"name": "city", "type": "string"},
+            {"name": "year", "type": "integer"},
+            {"name": "population", "type": "integer"}
+          ]
+        }
+      }
+    ]
+  }
+```
+
+And all the rest of the code would still be working. 
+
+A complete example can be found [here](https://github.com/frictionlessdata/datapackage-go/tree/master/examples/multipart).
+
 ### Manipulating data packages
 
 The datapackage-go library also makes it easy to save packages. Let's say you're creating a program that produces data packages and would like to add or remove resource:

@@ -1,8 +1,11 @@
 package datapackage
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net/url"
 	"path"
 	"path/filepath"
@@ -155,7 +158,6 @@ func (r *Resource) GetTable(opts ...csv.CreationOpts) (table.Table, error) {
 		return nil, fmt.Errorf("methods iter/read are not supported for non tabular data")
 	}
 	fullOpts := append(dialectOpts(r.descriptor[dialectProp]), opts...)
-
 	// Inlined resources.
 	if r.data != nil {
 		switch r.data.(type) {
@@ -165,9 +167,9 @@ func (r *Resource) GetTable(opts ...csv.CreationOpts) (table.Table, error) {
 			return nil, fmt.Errorf("only csv and string is supported for inlining data")
 		}
 	}
-	// Single-part resources.
-	if len(r.path) == 1 {
-		p := r.path[0]
+	// Paths: create a table from the concatenation of the data in all paths.
+	var buf bytes.Buffer
+	for _, p := range r.path {
 		if r.basePath != "" {
 			p = filepath.Join(r.basePath, p)
 		}
@@ -177,13 +179,23 @@ func (r *Resource) GetTable(opts ...csv.CreationOpts) (table.Table, error) {
 		} else {
 			source = csv.FromFile(p)
 		}
-		t, err := csv.NewTable(source, fullOpts...)
+		rc, err := source()
 		if err != nil {
 			return nil, err
 		}
-		return t, nil
+		defer rc.Close()
+		b, err := ioutil.ReadAll(rc)
+		if err != nil {
+			return nil, err
+		}
+		buf.Write(b)
+		buf.WriteRune('\n')
 	}
-	return nil, nil
+	t, err := csv.NewTable(func() (io.ReadCloser, error) { return ioutil.NopCloser(strings.NewReader(buf.String())), nil }, fullOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return t, nil
 }
 
 // ReadAll reads all rows from the table and return it as strings.
@@ -290,32 +302,6 @@ func NewResource(d map[string]interface{}, registry validator.Registry) (*Resour
 	return &r, nil
 }
 
-func loadSchema(p string) (map[string]interface{}, error) {
-	var sch *schema.Schema
-	if strings.HasPrefix(p, "http") {
-		s, err := schema.LoadRemote(p)
-		if err != nil {
-			return nil, err
-		}
-		sch = s
-	} else {
-		s, err := schema.LoadFromFile(p)
-		if err != nil {
-			return nil, err
-		}
-		sch = s
-	}
-	buf, err := json.Marshal(sch)
-	if err != nil {
-		return nil, err
-	}
-	var ret map[string]interface{}
-	if err := json.Unmarshal(buf, &ret); err != nil {
-		return nil, err
-	}
-	return ret, nil
-}
-
 func fillResourceDescriptorWithDefaultValues(r map[string]interface{}) {
 	if r[profilePropName] == nil {
 		r[profilePropName] = defaultResourceProfile
@@ -364,6 +350,14 @@ func parsePath(pathI interface{}, d map[string]interface{}) ([]string, error) {
 		}
 	case []string:
 		returned = append(returned, pathI.([]string)...)
+	case []interface{}:
+		for _, p := range pathI.([]interface{}) {
+			pStr, ok := p.(string)
+			if !ok {
+				return nil, fmt.Errorf("path MUST be a string or an array of strings. Descriptor:%v", d)
+			}
+			returned = append(returned, pStr)
+		}
 	}
 	var lastType, currType pathType
 	// Validation.
@@ -385,8 +379,8 @@ func parsePath(pathI interface{}, d map[string]interface{}) ([]string, error) {
 			if currType != lastType {
 				return nil, fmt.Errorf("it is NOT permitted to mix fully qualified URLs and relative paths in a single resource. Descriptor:%v", d)
 			}
-			lastType = currType
 		}
+		lastType = currType
 	}
 	return returned, nil
 }
@@ -412,6 +406,5 @@ func NewResourceFromString(res string, registry validator.Registry) (*Resource, 
 	if err := json.Unmarshal([]byte(res), &d); err != nil {
 		return nil, err
 	}
-	fmt.Println(d)
 	return NewResource(d, registry)
 }

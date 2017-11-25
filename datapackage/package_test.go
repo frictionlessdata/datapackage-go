@@ -412,3 +412,25 @@ func TestLoad(t *testing.T) {
 		}
 	})
 }
+
+func TestLoadPackageSchemas(t *testing.T) {
+	is := is.New(t)
+	schStr := `{"fields": [{"name":"name", "type":"string"}]}`
+	schMap := map[string]interface{}{"fields": []interface{}{map[string]interface{}{"name": "name", "type": "string"}}}
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, schStr)
+	}))
+	defer ts.Close()
+	in := fmt.Sprintf(`{
+		"schema": "%s",
+		"resources": [{ 
+		"name": "res1",
+		"path": "data.csv",
+		"profile": "tabular-data-resource",
+		"schema": "%s"
+	  }]}`, ts.URL, ts.URL)
+	pkg, err := FromString(in, ".", validator.InMemoryLoader())
+	is.NoErr(err)
+	is.Equal(pkg.Descriptor()["schema"], schMap)
+	is.Equal(pkg.GetResource("res1").Descriptor()["schema"], schMap)
+}

@@ -82,6 +82,7 @@ func TestNew(t *testing.T) {
 			{"URL", map[string]interface{}{"name": "foo", "url": "http://data/foo.csv"}, []string{"http://url.com"}},
 			{"FilePath", map[string]interface{}{"name": "foo", "path": "data/foo.csv"}, []string{"data/foo.csv"}},
 			{"SlicePath", map[string]interface{}{"name": "foo", "path": []string{"https://foo.csv", "http://data/bar.csv"}}, []string{"https://foo.csv", "http://data/bar.csv"}},
+			{"SlicePath", map[string]interface{}{"name": "foo", "path": []interface{}{"https://foo.csv", "http://data/bar.csv"}}, []string{"https://foo.csv", "http://data/bar.csv"}},
 		}
 		for _, d := range data {
 			t.Run(d.testDescription, func(t *testing.T) {
@@ -146,6 +147,7 @@ func TestNew(t *testing.T) {
 			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				fmt.Fprintln(w, `{"fields": [{"name": "name","type": "string"}]}`)
 			}))
+			defer ts.Close()
 			r, err := NewResource(
 				map[string]interface{}{"name": "foo", "path": "foo.csv", "schema": ts.URL},
 				validator.MustInMemoryRegistry(),
@@ -304,6 +306,29 @@ func TestResource_ReadAll(t *testing.T) {
 			contents, err := r.ReadAll()
 			is.NoErr(err)
 			is.Equal(contents, [][]string{{"foo", "42"}})
+		})
+		t.Run("Multipart", func(t *testing.T) {
+			is := is.New(t)
+			schemaServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				fmt.Fprintln(w, `{"fields": [{"name": "name","type": "string"}]}`)
+			}))
+			defer schemaServer.Close()
+			res1Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				fmt.Fprintln(w, "name\nFoo")
+			}))
+			defer res1Server.Close()
+			res2Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				fmt.Fprintln(w, "Bar")
+			}))
+			defer res2Server.Close()
+			r, err := NewResource(
+				map[string]interface{}{"name": "foo", "format": "csv", "path": []string{res1Server.URL, res2Server.URL}, "schema": schemaServer.URL},
+				validator.MustInMemoryRegistry(),
+			)
+			is.NoErr(err)
+			contents, err := r.ReadAll()
+			is.NoErr(err)
+			fmt.Println(contents, [][]string{{"name"}, {"Foo"}, {"Bar"}})
 		})
 	})
 }
