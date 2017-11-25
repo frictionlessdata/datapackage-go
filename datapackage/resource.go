@@ -254,6 +254,12 @@ func NewResource(d map[string]interface{}, registry validator.Registry) (*Resour
 	if err != nil {
 		return nil, err
 	}
+	if schStr, ok := cpy[schemaProp].(string); ok {
+		cpy[schemaProp], err = loadSchema(schStr)
+		if err != nil {
+			return nil, err
+		}
+	}
 	fillResourceDescriptorWithDefaultValues(cpy)
 	profile, ok := cpy[profilePropName].(string)
 	if !ok {
@@ -282,6 +288,32 @@ func NewResource(d map[string]interface{}, registry validator.Registry) (*Resour
 	}
 	r.data = data
 	return &r, nil
+}
+
+func loadSchema(p string) (map[string]interface{}, error) {
+	var sch *schema.Schema
+	if strings.HasPrefix(p, "http") {
+		s, err := schema.LoadRemote(p)
+		if err != nil {
+			return nil, err
+		}
+		sch = s
+	} else {
+		s, err := schema.LoadFromFile(p)
+		if err != nil {
+			return nil, err
+		}
+		sch = s
+	}
+	buf, err := json.Marshal(sch)
+	if err != nil {
+		return nil, err
+	}
+	var ret map[string]interface{}
+	if err := json.Unmarshal(buf, &ret); err != nil {
+		return nil, err
+	}
+	return ret, nil
 }
 
 func fillResourceDescriptorWithDefaultValues(r map[string]interface{}) {

@@ -2,8 +2,10 @@ package datapackage
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"reflect"
 	"testing"
 
@@ -138,6 +140,53 @@ func TestNew(t *testing.T) {
 		is.NoErr(err)
 		is.Equal(r.descriptor["dialect"], map[string]interface{}{"delimiter": ",", "doubleQuote": true})
 	})
+	t.Run("SchemaLoading", func(t *testing.T) {
+		t.Run("ValidRemote", func(t *testing.T) {
+			is := is.New(t)
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				fmt.Fprintln(w, `{"fields": [{"name": "name","type": "string"}]}`)
+			}))
+			r, err := NewResource(
+				map[string]interface{}{"name": "foo", "path": "foo.csv", "schema": ts.URL},
+				validator.MustInMemoryRegistry(),
+			)
+			is.NoErr(err)
+			sch, err := r.GetSchema()
+			is.Equal(sch.Fields[0].Type, "string")
+		})
+		t.Run("InvalidRemote", func(t *testing.T) {
+			_, err := NewResource(
+				map[string]interface{}{"name": "foo", "path": "foo.csv", "schema": "http://foobar"},
+				validator.MustInMemoryRegistry(),
+			)
+			if err == nil {
+				t.Fatalf("want:err got:nil")
+			}
+		})
+		t.Run("ValidLocal", func(t *testing.T) {
+			is := is.New(t)
+			f, err := ioutil.TempFile("", "resourceNewValidLocal")
+			is.NoErr(err)
+			defer os.Remove(f.Name())
+			is.NoErr(ioutil.WriteFile(f.Name(), []byte(`{"fields": [{"name": "name","type": "string"}]}`), 0666))
+			r, err := NewResource(
+				map[string]interface{}{"name": "foo", "path": "foo.csv", "schema": f.Name()},
+				validator.MustInMemoryRegistry(),
+			)
+			is.NoErr(err)
+			sch, err := r.GetSchema()
+			is.Equal(sch.Fields[0].Type, "string")
+		})
+		t.Run("InvalidLocal", func(t *testing.T) {
+			_, err := NewResource(
+				map[string]interface{}{"name": "foo", "path": "foo.csv", "schema": "foobarbez"},
+				validator.MustInMemoryRegistry(),
+			)
+			if err == nil {
+				t.Fatalf("want:err got:nil")
+			}
+		})
+	})
 }
 
 func TestResource_Descriptor(t *testing.T) {
@@ -194,14 +243,7 @@ func TestResource_ReadAll(t *testing.T) {
 			"name":    "names",
 			"path":    "%s",
 			"profile": "tabular-data-resource",
-			"schema": {
-				"fields": [
-				{
-					"name": "name",
-					"type": "string"
-				}
-				]
-			}
+			"schema": {"fields": [{"name": "name","type": "string"}]}
 		}`, ts.URL)
 		res, err := NewResourceFromString(resStr, validator.MustInMemoryRegistry())
 		is.NoErr(err)
@@ -217,9 +259,7 @@ func TestResource_ReadAll(t *testing.T) {
 				"data":    "name\nfoo",
 				"format":  "csv",
 				"profile": "tabular-data-resource",
-				"schema": {
-					"fields": [{"name": "name", "type": "string"}]
-				}
+				"schema": {"fields": [{"name": "name", "type": "string"}]}
 			}`
 		res, err := NewResourceFromString(resStr, validator.MustInMemoryRegistry())
 		is.NoErr(err)
