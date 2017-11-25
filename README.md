@@ -146,6 +146,34 @@ for iter.Next() {
 // {City:rome Year:2017 Population:2860000}]
 ```
 
+#### CSV dialect support
+
+Basic support for configuring [CSV dialect](http://frictionlessdata.io/specs/csv-dialect/) has been added. In particular `delimiter`, `skipInitialSpace` and `header` fields are supported. For instance, lets assume the population file has a different field delimiter:
+
+> data/population.csv
+```csv
+city,year,population
+london;2017;8780000
+paris;2017;2240000
+rome;2017;2860000
+```
+
+One could easily parse by adding following `dialect` property to the `world` resource:
+
+```json
+{
+    "name": "world",
+    "resources": [
+      {
+        // ...
+        "dialect":{
+            "delimiter":';'
+        }
+        // ...
+      }
+}
+```
+
 ### Manipulating data packages
 
 The datapackage-go library also makes it easy to save packages. Let's say you're creating a program that produces data packages and would like to add or remove resource:

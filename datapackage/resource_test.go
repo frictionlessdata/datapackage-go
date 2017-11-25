@@ -130,6 +130,14 @@ func TestNew(t *testing.T) {
 			})
 		}
 	})
+	t.Run("DelimiterDefaultValues", func(t *testing.T) {
+		is := is.New(t)
+		r, err := NewResource(
+			map[string]interface{}{"name": "foo", "path": "foo.csv", "dialect": map[string]interface{}{}},
+			validator.MustInMemoryRegistry())
+		is.NoErr(err)
+		is.Equal(r.descriptor["dialect"], map[string]interface{}{"delimiter": ",", "doubleQuote": true})
+	})
 }
 
 func TestResource_Descriptor(t *testing.T) {
@@ -225,6 +233,38 @@ func TestResource_ReadAll(t *testing.T) {
 		if err == nil {
 			t.Fatalf("want:nil got:err")
 		}
+	})
+	t.Run("Dialect", func(t *testing.T) {
+		t.Run("Valid", func(t *testing.T) {
+			is := is.New(t)
+			r, err := NewResource(
+				map[string]interface{}{
+					"name":    "foo",
+					"data":    "name;age\n foo;42",
+					"format":  "csv",
+					"dialect": map[string]interface{}{"delimiter": ";", "skipInitialSpace": false, "header": true}},
+				validator.MustInMemoryRegistry(),
+			)
+			is.NoErr(err)
+			contents, err := r.ReadAll()
+			is.NoErr(err)
+			is.Equal(contents, [][]string{{" foo", "42"}})
+		})
+		t.Run("EmptyDelimiter", func(t *testing.T) {
+			is := is.New(t)
+			r, err := NewResource(
+				map[string]interface{}{
+					"name":    "foo",
+					"data":    "name,age\nfoo,42",
+					"format":  "csv",
+					"dialect": map[string]interface{}{"delimiter": ""}},
+				validator.MustInMemoryRegistry(),
+			)
+			is.NoErr(err)
+			contents, err := r.ReadAll()
+			is.NoErr(err)
+			is.Equal(contents, [][]string{{"foo", "42"}})
+		})
 	})
 }
 

@@ -35,15 +35,41 @@ const (
 )
 
 const (
-	schemaProp    = "schema"
-	nameProp      = "name"
-	formatProp    = "format"
-	mediaTypeProp = "mediatype"
-	pathProp      = "path"
-	dataProp      = "data"
-	jsonFormat    = "json"
-	profileProp   = "profile"
+	schemaProp           = "schema"
+	nameProp             = "name"
+	formatProp           = "format"
+	mediaTypeProp        = "mediatype"
+	pathProp             = "path"
+	dataProp             = "data"
+	jsonFormat           = "json"
+	profileProp          = "profile"
+	dialectProp          = "dialect"
+	delimiterProp        = "delimiter"
+	skipInitialSpaceProp = "skipInitialSpace"
+	headerProp           = "header"
+	doubleQuoteProp      = "doubleQuote"
 )
+
+// dialect represents CSV dialect configuration options.
+// http://frictionlessdata.io/specs/csv-dialect/
+type dialect struct {
+	// Delimiter specifies the character sequence which should separate fields (aka columns).
+	Delimiter rune
+	// Specifies how to interpret whitespace which immediately follows a delimiter;
+	// if false, it means that whitespace immediately after a delimiter should be treated as part of the following field.
+	SkipInitialSpace bool
+	// Header indicates whether the file includes a header row. If true the first row in the file is a header row, not data.
+	Header bool
+	// Controls the handling of quotes inside fields. If true, two consecutive quotes should be interpreted as one.
+	DoubleQuote bool
+}
+
+var defaultDialect = dialect{
+	Delimiter:        ',',
+	SkipInitialSpace: true,
+	Header:           true,
+	DoubleQuote:      true,
+}
 
 // Resource describes a data resource such as an individual file or table.
 type Resource struct {
@@ -91,16 +117,50 @@ func (r *Resource) Tabular() bool {
 	return ok
 }
 
+func dialectOpts(i interface{}) []csv.CreationOpts {
+	if i == nil {
+		return []csv.CreationOpts{}
+	}
+	d := defaultDialect
+	// Overriding default setting with valid values.
+	dMap, ok := i.(map[string]interface{})
+	if ok {
+		if v, ok := dMap[delimiterProp].(string); ok {
+			s := []rune(v)
+			if len(s) > 0 {
+				d.Delimiter = s[0]
+			}
+		}
+		if v, ok := dMap[skipInitialSpaceProp].(bool); ok {
+			d.SkipInitialSpace = v
+		}
+		if v, ok := dMap[headerProp].(bool); ok {
+			d.Header = v
+		}
+	}
+	// Mapping dialect to proper csv CreationOpts.
+	opts := []csv.CreationOpts{csv.Delimiter(d.Delimiter)}
+	if !d.SkipInitialSpace {
+		opts = append(opts, csv.ConsiderInitialSpace())
+	}
+	if d.Header {
+		opts = append(opts, csv.LoadHeaders())
+	}
+	return opts
+}
+
 // GetTable returns a table object to access the data. Returns an error if the resource is not tabular.
 func (r *Resource) GetTable(opts ...csv.CreationOpts) (table.Table, error) {
 	if !r.Tabular() {
 		return nil, fmt.Errorf("methods iter/read are not supported for non tabular data")
 	}
+	fullOpts := append(dialectOpts(r.descriptor[dialectProp]), opts...)
+
 	// Inlined resources.
 	if r.data != nil {
 		switch r.data.(type) {
 		case string:
-			return csv.NewTable(csv.FromString(r.data.(string)), opts...)
+			return csv.NewTable(csv.FromString(r.data.(string)), fullOpts...)
 		default:
 			return nil, fmt.Errorf("only csv and string is supported for inlining data")
 		}
@@ -117,7 +177,7 @@ func (r *Resource) GetTable(opts ...csv.CreationOpts) (table.Table, error) {
 		} else {
 			source = csv.FromFile(p)
 		}
-		t, err := csv.NewTable(source, opts...)
+		t, err := csv.NewTable(source, fullOpts...)
 		if err != nil {
 			return nil, err
 		}
@@ -230,6 +290,18 @@ func fillResourceDescriptorWithDefaultValues(r map[string]interface{}) {
 	}
 	if r[encodingPropName] == nil {
 		r[encodingPropName] = defaultResourceEncoding
+	}
+	// Filling up mandatory values with default values if not set.
+	// That prevents users from the hassle of manually setting up all mandatory values.
+	if r[dialectProp] != nil {
+		if dMap, ok := r[dialectProp].(map[string]interface{}); ok {
+			if dMap[delimiterProp] == nil {
+				dMap[delimiterProp] = string(defaultDialect.Delimiter)
+			}
+			if dMap[doubleQuoteProp] == nil {
+				dMap[doubleQuoteProp] = defaultDialect.DoubleQuote
+			}
+		}
 	}
 }
 

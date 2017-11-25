@@ -3,15 +3,21 @@
 
 [[projects]]
   name = "github.com/frictionlessdata/tableschema-go"
-  packages = ["csv","table"]
-  revision = "df55ce69d344de17283c5c39735e56eede2a5ebe"
-  version = "v1.0"
+  packages = ["csv","schema","table"]
+  revision = "de3a51f8487b68142a2826f6ffe521222a342273"
+  version = "1.1"
 
 [[projects]]
   branch = "master"
   name = "github.com/matryer/is"
   packages = ["."]
   revision = "c0323ceb4e996e4a8795670d1fb6f60e65b82fd2"
+
+[[projects]]
+  name = "github.com/satori/go.uuid"
+  packages = ["."]
+  revision = "879c5887cd475cd7864858769793b2ceb0d44feb"
+  version = "v1.1.0"
 
 [[projects]]
   branch = "master"
@@ -34,6 +40,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "8f24db9eefe9bcb7c50010c6188889f5bb3fcad0c67209c7996df096af10c949"
+  inputs-digest = "61a5910530717eb86037e86cd3a4f4aee3661c8b9f2023b81c4a4bfcd5b1c326"
   solver-name = "gps-cdcl"
   solver-version = 1
