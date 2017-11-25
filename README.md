@@ -3,67 +3,30 @@
 # datapackage-go
 A Go library for working with [Data Packages](http://specs.frictionlessdata.io/data-package/).
 
-## Features
+<!-- TOC -->
 
-* [Package](https://godoc.org/github.com/frictionlessdata/datapackage-go/datapackage#Package) class for working with data packages
-* [Resource](https://godoc.org/github.com/frictionlessdata/datapackage-go/datapackage#Resource) class for working with data resources
-* [Valid](https://godoc.org/github.com/frictionlessdata/datapackage-go/validator#IsValid) function for validating data package descriptors
+- [datapackage-go](#datapackage-go)
+    - [Install](#install)
+    - [Main Features](#main-features)
+        - [Loading and validating data package descriptors](#loading-and-validating-data-package-descriptors)
+        - [Accessing data package resources](#accessing-data-package-resources)
+        - [Loading zip bundles](#loading-zip-bundles)
+        - [Creating a zip bundle with the data package.](#creating-a-zip-bundle-with-the-data-package)
+        - [CSV dialect support](#csv-dialect-support)
+        - [Loading multipart resources](#loading-multipart-resources)
+        - [Manipulating data packages programatically](#manipulating-data-packages-programatically)
 
-## Getting started
+<!-- /TOC -->
 
-## Library Installation
-
-This package uses [semantic versioning 2.0.0](http://semver.org/).
-
-### Using dep
-
-```sh
-$ go get -u github.com/golang/dep/cmd/dep
-$ dep init
-$ dep ensure
-```
-
-### Using go get
+## Install
 
 ```sh
 $ go get -u github.com/frictionlessdata/datapackage-go/...
 ```
 
-## Example
-
-Code examples in this readme requires Go 1.8+. You could see even more example in [examples](https://github.com/frictionlessdata/datapackage-go/tree/master/examples) directory.
-
-```go
-descriptor := `
-{
-    "name": "remote_datapackage",
-    "resources": [{
-        "name": "example",
-        "format": "csv",
-        "data": "height,age,name\n180,18,Tony\n192,32,Jacob",
-        "profile":"tabular-data-resource",
-        "schema": {
-            "fields": [
-                {"name":"height", "type":"integer"},
-                {"name":"age", "type":"integer"},
-                {"name":"name", "type":"string"}
-            ]
-        }
-    }]
-}`
-pkg, err := FromString(descriptor)
-if err != nil {
-    panic(err)
-}
-res := pkg.GetResource("example")
-contents, _ := res.ReadAll(csv.LoadHeaders())
-fmt.Println(contents)
-// [[180 18 Tony] [192 32 Jacob]]
-```
-
 ## Main Features
 
-### Data description and processing
+### Loading and validating data package descriptors
 
 A [data package](http://frictionlessdata.io/specs/data-package/) is a collection of [resources](http://frictionlessdata.io/specs/data-resource/). The [datapackage.Package](https://godoc.org/github.com/frictionlessdata/datapackage-go/datapackage#Package) provides various capabilities like loading local or remote data package, saving a data package descriptor and many more.
 
@@ -105,7 +68,7 @@ pkg, err := datapackage.Load("data/datapackage.json")
 // Check error.
 ```
 
-> The [datapackage.Load](https://godoc.org/github.com/frictionlessdata/datapackage-go/datapackage#Load) function also works for remote and zip file packages. Please check the [load_zip example](https://github.com/frictionlessdata/datapackage-go/tree/master/examples/load_zip).
+### Accessing data package resources
 
 Once the data package is loaded, we could use the [datapackage.Resource](https://godoc.org/github.com/frictionlessdata/datapackage-go/datapackage#Resource) class to read data resource's contents:
 
@@ -145,8 +108,37 @@ for iter.Next() {
 // {City:paris Year:2017 Population:2240000}
 // {City:rome Year:2017 Population:2860000}]
 ```
+### Loading zip bundles
 
-#### CSV dialect support
+It is very common to store the data in zip bundles containing the descriptor and data files. Those are natively supported by our the [datapackage.Load](https://godoc.org/github.com/frictionlessdata/datapackage-go/datapackage#Load) method. For example, lets say we have the following `package.zip` bundle:
+
+    |- package.zip
+        |- datapackage.json
+        |- data.csv
+
+We could load this package by simply:
+
+```go
+pkg, err := datapackage.Load("package.zip")
+// Check error.
+```
+
+And the library will unzip the package contents to a temporary directory and wire everything up for us.
+
+A complete example can be found [here](https://github.com/frictionlessdata/datapackage-go/tree/master/examples/load_zip).
+
+### Creating a zip bundle with the data package.
+
+You could also easily create a zip file containing the descriptor and all the data resources. Let's say you have a [datapackage.Package](https://godoc.org/github.com/frictionlessdata/datapackage-go/datapackage#Package) instance, to create a zip file containing all resources simply:
+
+```go
+err := pkg.Zip("package.zip")
+// Check error.
+```
+
+This call also download remote resources. A complete example can be found [here](https://github.com/frictionlessdata/datapackage-go/tree/master/examples/zip)
+
+### CSV dialect support
 
 Basic support for configuring [CSV dialect](http://frictionlessdata.io/specs/csv-dialect/) has been added. In particular `delimiter`, `skipInitialSpace` and `header` fields are supported. For instance, lets assume the population file has a different field delimiter:
 
@@ -161,22 +153,14 @@ rome;2017;2860000
 One could easily parse by adding following `dialect` property to the `world` resource:
 
 ```json
-{
-    "name": "world",
-    "resources": [
-      {
-        // ...
-        "dialect":{
-            "delimiter":';'
-        }
-        // ...
-      }
-}
+    "dialect":{
+        "delimiter":";"
+    }
 ```
 
 A complete example can be found [here](https://github.com/frictionlessdata/datapackage-go/tree/master/examples/load).
 
-#### Multipart resources
+### Loading multipart resources
 
 Sometimes you have data scattered across many local or remote files. Datapackage-go offers an easy way you to deal all those file as one big
 file. We call it multipart resources. To use this feature, simply list your files in the `path` property of the resource. For example, lets
@@ -207,7 +191,8 @@ And all the rest of the code would still be working.
 
 A complete example can be found [here](https://github.com/frictionlessdata/datapackage-go/tree/master/examples/multipart).
 
-### Manipulating data packages
+
+### Manipulating data packages programatically
 
 The datapackage-go library also makes it easy to save packages. Let's say you're creating a program that produces data packages and would like to add or remove resource:
 
@@ -255,12 +240,4 @@ pkg.AddResource(map[string]interface{}{
 cities, _ := pkg.GetResource("cities").ReadAll()
 fmt.Println(cities)
 // [[london 2017 8780000] [paris 2017 2240000] [rome 20172860000]]
-```
-
-### Creating a zip bundle with the data package.
-
-You could also easily create a zip file containing the descriptor and all the data resources, which could loaded afterwards:
-
-```go
-pkg.Zip("cities.zip")
 ```
