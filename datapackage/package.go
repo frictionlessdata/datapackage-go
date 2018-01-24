@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -286,7 +287,7 @@ func Load(path string, loaders ...validator.RegistryLoader) (*Package, error) {
 		return nil, err
 	}
 	if !strings.HasSuffix(path, ".zip") {
-		return FromReader(bytes.NewBuffer(contents), filepath.Dir(path), loaders...)
+		return FromReader(bytes.NewBuffer(contents), getBasepath(path), loaders...)
 	}
 	// Special case for zip paths. BasePath will be the temporary directory.
 	dir, err := ioutil.TempDir("", "datapackage_decompress")
@@ -301,6 +302,18 @@ func Load(path string, loaders ...validator.RegistryLoader) (*Package, error) {
 		return Load(filepath.Join(dir, descriptorFileNameWithinZip), loaders...)
 	}
 	return nil, fmt.Errorf("zip file %s does not contain a file called %s", path, descriptorFileNameWithinZip)
+}
+
+func getBasepath(p string) string {
+	u, err := url.Parse(p)
+	if err != nil {
+		return filepath.Dir(p)
+	}
+	if u.Path == "" {
+		u.Path = "/"
+	}
+	u.Path = filepath.Dir(u.Path)
+	return u.String()
 }
 
 func read(path string) ([]byte, error) {

@@ -363,12 +363,25 @@ func TestLoad(t *testing.T) {
 			fmt.Fprintln(w, r1Str)
 		}))
 		defer ts.Close()
-
-		pkg, err := Load(ts.URL, validator.InMemoryLoader())
-		is.NoErr(err)
-		res := pkg.GetResource("res1")
-		is.Equal(res.name, "res1")
-		is.Equal(res.path, []string{"foo.csv"})
+		data := []struct {
+			desc       string
+			pathSuffix string
+		}{
+			{"Empty Path", ""},
+			{"Non-EmptyPath", "/datapackage.json"},
+			{"EndsInSlash", "/"},
+		}
+		for _, d := range data {
+			t.Run(d.desc, func(t *testing.T) {
+				is := is.New(t)
+				pkg, err := Load(ts.URL+d.pathSuffix, validator.InMemoryLoader())
+				is.NoErr(err)
+				res := pkg.GetResource("res1")
+				is.Equal(res.name, "res1")
+				is.Equal(res.path, []string{"foo.csv"})
+				is.Equal(res.basePath, ts.URL+"/")
+			})
+		}
 	})
 	t.Run("InvalidPath", func(t *testing.T) {
 		_, err := Load("foobar", validator.InMemoryLoader())
