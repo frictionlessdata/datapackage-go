@@ -56,6 +56,28 @@ func ExampleLoad_readAll() {
 	// Output: [[foo] [bar]]
 }
 
+func ExampleLoad_readAllRemote() {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// If the request is for data, returns the content.
+		switch {
+		case r.RequestURI == "/data.csv":
+			fmt.Fprintf(w, "foo\nbar")
+		default:
+			fmt.Fprintf(w, `{"resources": [{ 
+				"name": "res1",
+				"path": "data.csv",
+				"profile": "tabular-data-resource",
+				"schema": {"fields": [{"name":"name", "type":"string"}]}
+			  }]}`)
+		}
+	}))
+	defer ts.Close()
+	pkg, _ := Load(ts.URL, validator.InMemoryLoader())
+	contents, _ := pkg.GetResource("res1").ReadAll()
+	fmt.Println(contents)
+	// Output: [[foo] [bar]]
+}
+
 func ExampleLoad_cast() {
 	dir, _ := ioutil.TempDir("", "datapackage_exampleload")
 	defer os.Remove(dir)

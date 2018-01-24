@@ -194,7 +194,7 @@ func (r *Resource) GetTable(opts ...csv.CreationOpts) (table.Table, error) {
 	var buf bytes.Buffer
 	for _, p := range r.path {
 		if r.basePath != "" {
-			p = filepath.Join(r.basePath, p)
+			p = joinPaths(r.basePath, p)
 		}
 		var source csv.Source
 		if strings.HasPrefix(p, "http") {
@@ -219,6 +219,15 @@ func (r *Resource) GetTable(opts ...csv.CreationOpts) (table.Table, error) {
 		return nil, err
 	}
 	return t, nil
+}
+
+func joinPaths(basePath, path string) string {
+	u, err := url.Parse(basePath)
+	if err != nil {
+		return filepath.Join(basePath, path)
+	}
+	u.Path = filepath.Join(u.EscapedPath(), path)
+	return u.String()
 }
 
 // ReadAll reads all rows from the table and return it as strings.
