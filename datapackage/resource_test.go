@@ -243,7 +243,7 @@ func TestResource_ReadAll(t *testing.T) {
 		resStr := fmt.Sprintf(`
 		{
 			"name":    "names",
-			"path":    "%s",
+			"path":    "%s/data.csv",
 			"profile": "tabular-data-resource",
 			"schema": {"fields": [{"name": "name","type": "string"}]}
 		}`, ts.URL)
