@@ -231,6 +231,8 @@ func TestResource_Tabular(t *testing.T) {
 	is.True(!r1.Tabular())
 	r2 := NewUncheckedResource(map[string]interface{}{"format": "csv"})
 	is.True(r2.Tabular())
+	r3 := NewUncheckedResource(map[string]interface{}{"path": []string{"boo.csv"}})
+	is.True(r3.Tabular())
 }
 
 func TestResource_ReadAll(t *testing.T) {

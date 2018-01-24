@@ -116,8 +116,31 @@ func (r *Resource) Tabular() bool {
 		return true
 	}
 	fStr, _ := r.descriptor[formatProp].(string)
-	_, ok := tabularFormats[fStr]
-	return ok
+	if _, ok := tabularFormats[fStr]; ok {
+		return true
+	}
+	if len(r.path) > 0 && all(r.path, isFileTabular) {
+		return true
+	}
+	return false
+}
+
+func all(strings []string, f func(string) bool) bool {
+	for _, s := range strings {
+		if !f(s) {
+			return false
+		}
+	}
+	return true
+}
+
+func isFileTabular(path string) bool {
+	for extension := range tabularFormats {
+		if strings.HasSuffix(path, extension) {
+			return true
+		}
+	}
+	return false
 }
 
 func dialectOpts(i interface{}) []csv.CreationOpts {
@@ -395,6 +418,10 @@ func NewUncheckedResource(d map[string]interface{}) *Resource {
 		if ok {
 			r.name = nStr
 		}
+	}
+	pI, ok := d["path"]
+	if ok {
+		r.path = pI.([]string)
 	}
 	return r
 }
