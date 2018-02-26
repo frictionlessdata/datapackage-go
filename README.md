@@ -8,12 +8,13 @@ A Go library for working with [Data Packages](http://specs.frictionlessdata.io/d
 - [datapackage-go](#datapackage-go)
     - [Install](#install)
     - [Main Features](#main-features)
-        - [Loading and validating data package descriptors](#loading-and-validating-data-package-descriptors)
+        - [Loading and validating tabular data package descriptors](#loading-and-validating-tabular-data-package-descriptors)
         - [Accessing data package resources](#accessing-data-package-resources)
         - [Loading zip bundles](#loading-zip-bundles)
         - [Creating a zip bundle with the data package.](#creating-a-zip-bundle-with-the-data-package)
         - [CSV dialect support](#csv-dialect-support)
         - [Loading multipart resources](#loading-multipart-resources)
+        - [Loading non-tabular resources](#loading-non-tabular-resources)
         - [Manipulating data packages programatically](#manipulating-data-packages-programatically)
 
 <!-- /TOC -->
@@ -26,7 +27,7 @@ $ go get -u github.com/frictionlessdata/datapackage-go/...
 
 ## Main Features
 
-### Loading and validating data package descriptors
+### Loading and validating tabular data package descriptors
 
 A [data package](http://frictionlessdata.io/specs/data-package/) is a collection of [resources](http://frictionlessdata.io/specs/data-resource/). The [datapackage.Package](https://godoc.org/github.com/frictionlessdata/datapackage-go/datapackage#Package) provides various capabilities like loading local or remote data package, saving a data package descriptor and many more.
 
@@ -191,6 +192,59 @@ And all the rest of the code would still be working.
 
 A complete example can be found [here](https://github.com/frictionlessdata/datapackage-go/tree/master/examples/multipart).
 
+
+### Loading non-tabular resources
+
+A [Data package](https://frictionlessdata.io/data-packages/) is a container format used to describe and package a collection of data. Even though there is additional support for dealing with tabular resources, it can be used to package any kind of data.
+
+For instance, lets say an user needs to load JSON-LD information along with some tabular data (for more on this use case, please take a look at [this](https://github.com/frictionlessdata/datapackage-go/issues/13) issue). That can be packed together in a data package descriptor:
+
+```json
+{
+    "name": "carp-lake",
+    "title": "Carp Lake Title",
+    "description": "Tephra and Lithology from Carp Lake",
+    "resources": [
+      {
+        "name":"data",
+        "path": "data/carpLakeCoreStratigraphy.csv",
+        "format": "csv",
+        "schema": {
+          "fields": [
+            {"name": "depth", "type": "number"},
+            {"name": "notes", "type": "text"},
+            {"name": "core_segments", "type": "text"}
+          ]
+        }
+      },
+      {
+        "name": "schemaorg",
+        "path": "data/schemaorg-ld.json",
+        "format": "application/ld+json"
+      }
+    ]
+}
+```
+
+The package loading proceeds as usual.
+
+
+```go
+pkg, err := datapackage.Load("data/datapackage.json")
+// Check error.
+```
+
+Once the data package is loaded, we could use the [Resource.RawRead](https://godoc.org/github.com/frictionlessdata/datapackage-go/datapackage#Resource.GetSchema) method to access `schemaorg` resource contents as a byte slice.
+
+```go
+so := pkg.GetResource("schemaorg")
+soContents, _ := so.RawRead()
+// Use contents. For instance, one could validate the JSON-LD schema and unmarshal it into a data structure.
+
+data := pkg.GetResource("data")
+dataContents, err := data.ReadAll()
+// As data is a tabular resource, its content can be loaded as [][]string.
+```
 
 ### Manipulating data packages programatically
 

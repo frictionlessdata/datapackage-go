@@ -6,10 +6,14 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/frictionlessdata/datapackage-go/clone"
 	"github.com/frictionlessdata/datapackage-go/validator"
@@ -190,19 +194,67 @@ func (r *Resource) GetTable(opts ...csv.CreationOpts) (table.Table, error) {
 			return nil, fmt.Errorf("only csv and string is supported for inlining data")
 		}
 	}
-	// Paths: create a table from the concatenation of the data in all paths.
+	buf, err := loadContents(r.basePath, r.path, csvLoadFunc)
+	if err != nil {
+		return nil, err
+	}
+	t, err := csv.NewTable(func() (io.ReadCloser, error) { return ioutil.NopCloser(bytes.NewReader(buf)), nil }, fullOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return t, nil
+}
+
+func csvLoadFunc(p string) func() (io.ReadCloser, error) {
+	if strings.HasPrefix(p, "http") {
+		return csv.Remote(p)
+	}
+	return csv.FromFile(p)
+}
+
+const (
+	remoteFetchTimeout = 15 * time.Second
+)
+
+var (
+	httpClient      *http.Client
+	startHTTPClient sync.Once
+)
+
+func binaryLoadFunc(p string) func() (io.ReadCloser, error) {
+	if strings.HasPrefix(p, "http") {
+		return func() (io.ReadCloser, error) {
+			startHTTPClient.Do(func() {
+				httpClient = &http.Client{
+					Timeout: remoteFetchTimeout,
+				}
+			})
+			resp, err := httpClient.Get(p)
+			if err != nil {
+				return nil, err
+			}
+			defer resp.Body.Close()
+			b, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				return nil, err
+			}
+			return ioutil.NopCloser(bytes.NewReader(b)), nil
+		}
+	}
+	return func() (io.ReadCloser, error) {
+		return os.Open(p)
+	}
+}
+
+type loadFunc func(string) func() (io.ReadCloser, error)
+
+func loadContents(basePath string, path []string, f loadFunc) ([]byte, error) {
 	var buf bytes.Buffer
-	for _, p := range r.path {
-		if r.basePath != "" {
-			p = joinPaths(r.basePath, p)
+	for _, p := range path {
+		if basePath != "" {
+			p = joinPaths(basePath, p)
 		}
-		var source csv.Source
-		if strings.HasPrefix(p, "http") {
-			source = csv.Remote(p)
-		} else {
-			source = csv.FromFile(p)
-		}
-		rc, err := source()
+		rc, err := f(p)()
 		if err != nil {
 			return nil, err
 		}
@@ -212,13 +264,11 @@ func (r *Resource) GetTable(opts ...csv.CreationOpts) (table.Table, error) {
 			return nil, err
 		}
 		buf.Write(b)
-		buf.WriteRune('\n')
+		if len(path) > 1 {
+			buf.WriteRune('\n')
+		}
 	}
-	t, err := csv.NewTable(func() (io.ReadCloser, error) { return ioutil.NopCloser(strings.NewReader(buf.String())), nil }, fullOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return t, nil
+	return buf.Bytes(), nil
 }
 
 func joinPaths(basePath, path string) string {
@@ -237,6 +287,15 @@ func (r *Resource) ReadAll(opts ...csv.CreationOpts) ([][]string, error) {
 		return nil, err
 	}
 	return t.ReadAll()
+}
+
+// RawRead reads all resource contents and return it as byte slice.
+// It can be used to access the content of non-tabular resources.
+func (r *Resource) RawRead() ([]byte, error) {
+	if r.data != nil {
+		return []byte(r.data.(string)), nil
+	}
+	return loadContents(r.basePath, r.path, binaryLoadFunc)
 }
 
 // Iter returns an Iterator to read the tabular resource. Iter returns an error

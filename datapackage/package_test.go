@@ -56,6 +56,28 @@ func ExampleLoad_readAll() {
 	// Output: [[foo] [bar]]
 }
 
+func ExampleLoad_readRaw() {
+	dir, _ := ioutil.TempDir("", "datapackage_exampleload")
+	defer os.Remove(dir)
+	descriptorPath := filepath.Join(dir, "pkg.json")
+	descriptorContents := `{"resources": [{ 
+		  "name": "res1",
+		  "path": "schemaorg.json",
+		  "format": "application/ld+json",
+		  "profile": "data-resource"
+		}]}`
+	ioutil.WriteFile(descriptorPath, []byte(descriptorContents), 0666)
+
+	resPath := filepath.Join(dir, "schemaorg.json")
+	resContent := []byte(`{"@context": {"@vocab": "http://schema.org/"}}`)
+	ioutil.WriteFile(resPath, resContent, 0666)
+
+	pkg, _ := Load(descriptorPath, validator.InMemoryLoader())
+	contents, _ := pkg.GetResource("res1").RawRead()
+	fmt.Println(string(contents))
+	// Output: {"@context": {"@vocab": "http://schema.org/"}}
+}
+
 func ExampleLoad_readAllRemote() {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// If the request is for data, returns the content.

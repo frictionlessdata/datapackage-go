@@ -418,3 +418,36 @@ func TestResource_Cast(t *testing.T) {
 		}
 	})
 }
+
+func TestResource_RawRead(t *testing.T) {
+	t.Run("Remote", func(t *testing.T) {
+		is := is.New(t)
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprint(w, "1234")
+		}))
+		defer ts.Close()
+		resStr := fmt.Sprintf(`
+		{
+			"name":    "ids",
+			"path":    "%s/id1",
+			"profile": "data-resource"
+		}`, ts.URL)
+		res, err := NewResourceFromString(resStr, validator.MustInMemoryRegistry())
+		is.NoErr(err)
+		contents, err := res.RawRead()
+		is.NoErr(err)
+		is.Equal(string(contents), "1234")
+	})
+	t.Run("Inline", func(t *testing.T) {
+		is := is.New(t)
+		resStr := `
+			{
+				"name": "ids", "data": "{\"foo\":\"1234\"}", "profile":"data-resource", "mediatype":"application/json"
+			}`
+		res, err := NewResourceFromString(resStr, validator.MustInMemoryRegistry())
+		is.NoErr(err)
+		contents, err := res.RawRead()
+		is.NoErr(err)
+		is.Equal(string(contents), "{\"foo\":\"1234\"}")
+	})
+}
