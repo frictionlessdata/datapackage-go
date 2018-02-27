@@ -194,15 +194,7 @@ func (r *Resource) GetTable(opts ...csv.CreationOpts) (table.Table, error) {
 			return nil, fmt.Errorf("only csv and string is supported for inlining data")
 		}
 	}
-	buf, err := loadContents(r.basePath, r.path, csvLoadFunc)
-	if err != nil {
-		return nil, err
-	}
-	t, err := csv.NewTable(func() (io.ReadCloser, error) { return ioutil.NopCloser(bytes.NewReader(buf)), nil }, fullOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return t, nil
+	return csv.NewTable(func() (io.ReadCloser, error) { return loadContents(r.basePath, r.path, csvLoadFunc) }, fullOpts...)
 }
 
 func csvLoadFunc(p string) func() (io.ReadCloser, error) {
@@ -233,12 +225,7 @@ func binaryLoadFunc(p string) func() (io.ReadCloser, error) {
 			if err != nil {
 				return nil, err
 			}
-			defer resp.Body.Close()
-			b, err := ioutil.ReadAll(resp.Body)
-			if err != nil {
-				return nil, err
-			}
-			return ioutil.NopCloser(bytes.NewReader(b)), nil
+			return resp.Body, nil
 		}
 	}
 	return func() (io.ReadCloser, error) {
@@ -246,10 +233,31 @@ func binaryLoadFunc(p string) func() (io.ReadCloser, error) {
 	}
 }
 
-type loadFunc func(string) func() (io.ReadCloser, error)
+type multiReadCloser struct {
+	io.Reader
+	rcs []io.ReadCloser
+}
 
-func loadContents(basePath string, path []string, f loadFunc) ([]byte, error) {
-	var buf bytes.Buffer
+func (m *multiReadCloser) Close() error {
+	var err error
+	for _, rc := range m.rcs {
+		if e := rc.Close(); e != nil {
+			err = e
+		}
+	}
+	return err
+}
+
+func newMultiReadCloser(rcs []io.ReadCloser) io.ReadCloser {
+	readers := make([]io.Reader, len(rcs))
+	for i := range rcs {
+		readers[i] = io.Reader(rcs[i])
+	}
+	return &multiReadCloser{io.MultiReader(readers...), rcs}
+}
+
+func loadContents(basePath string, path []string, f func(string) func() (io.ReadCloser, error)) (io.ReadCloser, error) {
+	var rcs []io.ReadCloser
 	for _, p := range path {
 		if basePath != "" {
 			p = joinPaths(basePath, p)
@@ -258,17 +266,12 @@ func loadContents(basePath string, path []string, f loadFunc) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		defer rc.Close()
-		b, err := ioutil.ReadAll(rc)
-		if err != nil {
-			return nil, err
-		}
-		buf.Write(b)
+		rcs = append(rcs, rc)
 		if len(path) > 1 {
-			buf.WriteRune('\n')
+			rcs = append(rcs, ioutil.NopCloser(bytes.NewReader([]byte{'\n'})))
 		}
 	}
-	return buf.Bytes(), nil
+	return newMultiReadCloser(rcs), nil
 }
 
 func joinPaths(basePath, path string) string {
@@ -289,11 +292,11 @@ func (r *Resource) ReadAll(opts ...csv.CreationOpts) ([][]string, error) {
 	return t.ReadAll()
 }
 
-// RawRead reads all resource contents and return it as byte slice.
+// RawRead returns an io.ReaderCloser associated to the resource contents.
 // It can be used to access the content of non-tabular resources.
-func (r *Resource) RawRead() ([]byte, error) {
+func (r *Resource) RawRead() (io.ReadCloser, error) {
 	if r.data != nil {
-		return []byte(r.data.(string)), nil
+		return ioutil.NopCloser(bytes.NewReader([]byte(r.data.(string)))), nil
 	}
 	return loadContents(r.basePath, r.path, binaryLoadFunc)
 }

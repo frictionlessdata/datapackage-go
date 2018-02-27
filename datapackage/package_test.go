@@ -73,7 +73,9 @@ func ExampleLoad_readRaw() {
 	ioutil.WriteFile(resPath, resContent, 0666)
 
 	pkg, _ := Load(descriptorPath, validator.InMemoryLoader())
-	contents, _ := pkg.GetResource("res1").RawRead()
+	rc, _ := pkg.GetResource("res1").RawRead()
+	defer rc.Close()
+	contents, _ := ioutil.ReadAll(rc)
 	fmt.Println(string(contents))
 	// Output: {"@context": {"@vocab": "http://schema.org/"}}
 }

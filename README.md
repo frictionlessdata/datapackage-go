@@ -238,7 +238,9 @@ Once the data package is loaded, we could use the [Resource.RawRead](https://god
 
 ```go
 so := pkg.GetResource("schemaorg")
-soContents, _ := so.RawRead()
+rc, _ := so.RawRead()
+defer rc.Close()
+contents, _ := ioutil.ReadAll(rc)
 // Use contents. For instance, one could validate the JSON-LD schema and unmarshal it into a data structure.
 
 data := pkg.GetResource("data")
