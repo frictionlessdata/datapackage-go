@@ -16,8 +16,8 @@
 [[projects]]
   name = "github.com/santhosh-tekuri/jsonschema"
   packages = [".","formats","httploader","loader"]
-  revision = "4eb6d64a0f783732deb9e49a260855dff8be8176"
-  version = "v1.0.3"
+  revision = "91ff43df0813581f639f6a5d6e4d555fd02894f0"
+  version = "v1.0.4"
 
 [[projects]]
   name = "github.com/satori/go.uuid"
