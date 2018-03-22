@@ -4,13 +4,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/xeipuuv/gojsonschema"
+	"github.com/santhosh-tekuri/jsonschema"
 )
 
 // DescriptorValidator validates a Data-Package or Resource descriptor.
 type DescriptorValidator interface {
-	IsValid(map[string]interface{}) bool
-	Errors() []error
+	Validate(map[string]interface{}) error
 }
 
 const localRegistryPath = "/registry.json"
@@ -22,6 +21,7 @@ func NewRegistry(loaders ...RegistryLoader) (Registry, error) {
 	if len(loaders) == 0 {
 		loaders = append(
 			loaders,
+			InMemoryLoader(),
 			LocalRegistryLoader(localRegistryPath, false /* inMemoryOnly*/),
 			RemoteRegistryLoader(remoteRegistryURL))
 	}
@@ -36,7 +36,7 @@ func NewRegistry(loaders ...RegistryLoader) (Registry, error) {
 func New(profile string, loaders ...RegistryLoader) (DescriptorValidator, error) {
 	// If it is a third-party schema. Directly referenced from the internet or local file.
 	if strings.HasPrefix(profile, "http") || strings.HasPrefix(profile, "file") {
-		schema, err := gojsonschema.NewSchema(gojsonschema.NewReferenceLoader(profile))
+		schema, err := jsonschema.Compile(profile)
 		if err != nil {
 			return nil, err
 		}
@@ -49,31 +49,15 @@ func New(profile string, loaders ...RegistryLoader) (DescriptorValidator, error)
 	return registry.GetValidator(profile)
 }
 
-// IsValid checks the passed-in descriptor against the passed-in profile.
-func IsValid(profile string, descriptor map[string]interface{}, loaders ...RegistryLoader) bool {
-	validator, err := New(profile, loaders...)
-	if err != nil {
-		return false
-	}
-	return validator.IsValid(descriptor)
-}
-
 // Validate checks whether the descriptor the descriptor is valid against the passed-in profile/registry.
 // If the validation process generates multiple errors, their messages are coalesced.
 // It is a syntax-sugar around getting the validator from the registry and coalescing errors.
 func Validate(descriptor map[string]interface{}, profile string, registry Registry) error {
 	validator, err := registry.GetValidator(profile)
 	if err != nil {
-		return err
+		return fmt.Errorf("Invalid Schema (Profile:%s):%q", profile, err)
 	}
-	if !validator.IsValid(descriptor) {
-		var erroMsg string
-		for _, err := range validator.Errors() {
-			erroMsg += fmt.Sprintln(err.Error())
-		}
-		return fmt.Errorf(erroMsg)
-	}
-	return nil
+	return validator.Validate(descriptor)
 }
 
 // MustInMemoryRegistry returns the local cache registry, which is shipped with the library.

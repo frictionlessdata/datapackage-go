@@ -1,13 +1,18 @@
 package validator
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	"github.com/frictionlessdata/datapackage-go/validator/profile_cache"
-	"github.com/xeipuuv/gojsonschema"
+	"github.com/santhosh-tekuri/jsonschema"
+
+	_ "github.com/santhosh-tekuri/jsonschema/httploader" // This import alows jsonschema to load urls.
+	_ "github.com/santhosh-tekuri/jsonschema/loader"     // This import alows jsonschema to load filepaths.
 )
 
 // RegistryLoader loads a registry.
@@ -40,7 +45,9 @@ func (local *localRegistry) GetValidator(profile string) (DescriptorValidator, e
 	if err != nil {
 		return nil, err
 	}
-	schema, err := gojsonschema.NewSchema(gojsonschema.NewBytesLoader(b))
+	c := jsonschema.NewCompiler()
+	c.AddResource(profile, bytes.NewReader(b)) // Adding in-memory resource.
+	schema, err := c.Compile(profile)
 	if err != nil {
 		return nil, err
 	}
@@ -73,14 +80,16 @@ func (remote *remoteRegistry) GetValidator(profile string) (DescriptorValidator,
 	if !ok {
 		return nil, fmt.Errorf("Invalid profile:%s", profile)
 	}
-	schema, err := gojsonschema.NewSchema(gojsonschema.NewReferenceLoader(spec.Schema))
+	c := jsonschema.NewCompiler()
+	c.AddResource(profile, strings.NewReader(spec.Schema)) // Adding in-memory resource.
+	schema, err := c.Compile(spec.Schema)
 	if err != nil {
 		return nil, err
 	}
 	return &jsonSchema{schema: schema}, nil
 }
 
-// RemoteRegistryLoaders loads the schema registry map from the passed-in URL.
+// RemoteRegistryLoader loads the schema registry map from the passed-in URL.
 func RemoteRegistryLoader(url string) RegistryLoader {
 	return func() (Registry, error) {
 		resp, err := http.Get(url)
@@ -116,6 +125,7 @@ func FallbackRegistryLoader(loaders ...RegistryLoader) RegistryLoader {
 				continue
 			}
 			registry = reg
+			break
 		}
 		if registry == nil {
 			var erroMsg string

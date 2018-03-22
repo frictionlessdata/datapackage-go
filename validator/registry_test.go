@@ -22,14 +22,13 @@ func TestDescriptorValidator_IsValid(t *testing.T) {
 		is := is.New(t)
 		v, err := New("data-package", localLoader)
 		is.NoErr(err)
-		is.True(v.IsValid(map[string]interface{}{"resources": []interface{}{map[string]interface{}{"name": "res1", "path": "foo.csv"}}}))
+		is.NoErr(v.Validate(map[string]interface{}{"resources": []interface{}{map[string]interface{}{"name": "res1", "path": "foo.csv"}}}))
 	})
 	t.Run("InvalidProfile", func(t *testing.T) {
 		is := is.New(t)
 		v, err := New("data-package", localLoader)
 		is.NoErr(err)
-		is.True(!v.IsValid(map[string]interface{}{"resources": []interface{}{map[string]interface{}{"name": "res1"}}}))
-		is.True(len(v.Errors()) > 0)
+		is.True(v.Validate(map[string]interface{}{"resources": []interface{}{map[string]interface{}{"name": "res1"}}}) != nil)
 	})
 }
 
@@ -41,7 +40,7 @@ func TestNew(t *testing.T) {
 
 		v, err := New(ts.URL)
 		is.NoErr(err)
-		is.True(v.IsValid(map[string]interface{}{"name": "foo"}))
+		is.NoErr(v.Validate(map[string]interface{}{"name": "foo"}))
 	})
 	t.Run("RemoteSchemaRegistry", func(t *testing.T) {
 		is := is.New(t)
@@ -52,7 +51,7 @@ func TestNew(t *testing.T) {
 
 		v, err := New("schemaID", RemoteRegistryLoader(regServer.URL))
 		is.NoErr(err)
-		is.True(v.IsValid(map[string]interface{}{"name": "foo"}))
+		is.NoErr(v.Validate(map[string]interface{}{"name": "foo"}))
 
 		_, err = New("foo", RemoteRegistryLoader(regServer.URL))
 		if err == nil {
@@ -70,7 +69,6 @@ func TestNew(t *testing.T) {
 			"tabular-data-resource",
 		}
 		loader, err := localLoader()
-		fmt.Println(loader)
 		is.NoErr(err)
 		for _, p := range profiles {
 			_, err := loader.GetValidator(p)
@@ -99,6 +97,16 @@ func TestNew(t *testing.T) {
 	})
 }
 
+type neverValidValidator struct{}
+
+func (v neverValidValidator) Validate(map[string]interface{}) error { return fmt.Errorf("never valid") }
+
+type neverValidRegistry struct{}
+
+func (v neverValidRegistry) GetValidator(profile string) (DescriptorValidator, error) {
+	return &neverValidValidator{}, nil
+}
+
 func TestFallbackRegistryLoader(t *testing.T) {
 	t.Run("FallingBackOnLocal", func(t *testing.T) {
 		is := is.New(t)
@@ -106,7 +114,15 @@ func TestFallbackRegistryLoader(t *testing.T) {
 		is.NoErr(err)
 		v, err := loader.GetValidator("data-package")
 		is.NoErr(err)
-		is.True(v.IsValid(map[string]interface{}{"resources": []interface{}{map[string]interface{}{"name": "res1", "path": "foo.csv"}}}))
+		is.NoErr(v.Validate(map[string]interface{}{"resources": []interface{}{map[string]interface{}{"name": "res1", "path": "foo.csv"}}}))
+	})
+	t.Run("TwoValidsShouldPickFirst", func(t *testing.T) {
+		is := is.New(t)
+		loader, err := FallbackRegistryLoader(InMemoryLoader(), func() (Registry, error) { return &neverValidRegistry{}, nil })()
+		is.NoErr(err)
+		v, err := loader.GetValidator("data-package")
+		is.NoErr(err)
+		is.NoErr(v.Validate(map[string]interface{}{"resources": []interface{}{map[string]interface{}{"name": "res1", "path": "foo.csv"}}}))
 	})
 	t.Run("NoLoader", func(t *testing.T) {
 		_, err := FallbackRegistryLoader()()

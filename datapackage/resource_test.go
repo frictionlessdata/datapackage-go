@@ -13,7 +13,7 @@ import (
 	"github.com/matryer/is"
 )
 
-func ExampleNewResourceWithDefaultRegistry() {
+func TestNewResourceWithDefaultRegistry(t *testing.T) {
 	res, _ := NewResourceWithDefaultRegistry(r1)
 	fmt.Println(res.Name())
 	// Output: res1
@@ -324,7 +324,7 @@ func TestResource_ReadAll(t *testing.T) {
 			}))
 			defer res2Server.Close()
 			r, err := NewResource(
-				map[string]interface{}{"name": "foo", "format": "csv", "path": []string{res1Server.URL, res2Server.URL}, "schema": schemaServer.URL},
+				map[string]interface{}{"name": "foo", "format": "csv", "path": []interface{}{res1Server.URL, res2Server.URL}, "schema": schemaServer.URL},
 				validator.MustInMemoryRegistry(),
 			)
 			is.NoErr(err)

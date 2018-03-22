@@ -14,32 +14,20 @@
   revision = "c0323ceb4e996e4a8795670d1fb6f60e65b82fd2"
 
 [[projects]]
+  name = "github.com/santhosh-tekuri/jsonschema"
+  packages = [".","formats","httploader","loader"]
+  revision = "4eb6d64a0f783732deb9e49a260855dff8be8176"
+  version = "v1.0.3"
+
+[[projects]]
   name = "github.com/satori/go.uuid"
   packages = ["."]
   revision = "879c5887cd475cd7864858769793b2ceb0d44feb"
   version = "v1.1.0"
 
-[[projects]]
-  branch = "master"
-  name = "github.com/xeipuuv/gojsonpointer"
-  packages = ["."]
-  revision = "6fe8760cad3569743d51ddbb243b26f8456742dc"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/xeipuuv/gojsonreference"
-  packages = ["."]
-  revision = "e02fc20de94c78484cd5ffb007f8af96be030a45"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/xeipuuv/gojsonschema"
-  packages = ["."]
-  revision = "212d8a0df7acfab8bdd190a7a69f0ab7376edcc8"
-
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "61a5910530717eb86037e86cd3a4f4aee3661c8b9f2023b81c4a4bfcd5b1c326"
+  inputs-digest = "53296cdc46ff2fe55d0165c23f2aeaea308531c13276a0518650c02e01e3bb08"
   solver-name = "gps-cdcl"
   solver-version = 1
