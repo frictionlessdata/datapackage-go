@@ -294,11 +294,11 @@ func TestPackage_Zip(t *testing.T) {
 
 		// Creating contents and zipping package.
 		descriptorContents := `{"resources": [{
-				"name": "res1",
-				"path": "data.csv",
-				"profile": "tabular-data-resource",
-				"schema": {"fields": [{"name":"name", "type":"string"}]}
-			  }]}`
+					"name": "res1",
+					"path": "data.csv",
+					"profile": "tabular-data-resource",
+					"schema": {"fields": [{"name":"name", "type":"string"}]}
+				  }]}`
 		pkg, _ := FromString(descriptorContents, dir, validator.InMemoryLoader())
 		fmt.Println(pkg.Descriptor())
 
@@ -403,10 +403,11 @@ func TestPackage_Zip(t *testing.T) {
 }`
 		is.Equal(buf.String(), filledDescriptor)
 
-		buf.Reset()
+		is.Equal("data/data.csv", reader.File[1].Name)
 		data, err := reader.File[1].Open()
 		is.NoErr(err)
 		defer data.Close()
+		buf.Reset()
 		io.Copy(&buf, data)
 		is.Equal(buf.String(), string(resContents))
 	})

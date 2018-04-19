@@ -193,10 +193,10 @@ func (p *Package) Zip(path string) error {
 		}
 	}
 	// Zipping everything.
-	return zipFiles(path, fPaths)
+	return zipFiles(path, dir, fPaths)
 }
 
-func zipFiles(filename string, files []string) error {
+func zipFiles(filename string, basepath string, files []string) error {
 	newfile, err := os.Create(filename)
 	if err != nil {
 		return err
@@ -217,6 +217,13 @@ func zipFiles(filename string, files []string) error {
 		header, err := zip.FileInfoHeader(info)
 		if err != nil {
 			return err
+		}
+		t := strings.TrimPrefix(file, basepath)[0:]
+		if strings.HasPrefix(t, "/") {
+			t = t[1:]
+		}
+		if filepath.Dir(t) != "." {
+			header.Name = t
 		}
 		writer, err := zipWriter.CreateHeader(header)
 		if err != nil {
