@@ -182,11 +182,11 @@ func (p *Package) Zip(path string) error {
 				return err
 			}
 			fDir := filepath.Join(dir, filepath.Dir(p))
-			if err := os.MkdirAll(fDir, 0775); err != nil {
+			if err := os.MkdirAll(fDir, os.ModePerm); err != nil {
 				return err
 			}
-			fPath := filepath.Join(fDir, p)
-			if err := ioutil.WriteFile(fPath, c, 0666); err != nil {
+			fPath := filepath.Join(fDir, filepath.Base(p))
+			if err := ioutil.WriteFile(fPath, c, os.ModePerm); err != nil {
 				return err
 			}
 			fPaths = append(fPaths, fPath)

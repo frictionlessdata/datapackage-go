@@ -286,19 +286,19 @@ func TestPackage_Zip(t *testing.T) {
 	t.Run("Valid", func(t *testing.T) {
 		is := is.New(t)
 
-		// Creating temporary empty file and making sure we remote it.
+		// Creating temporary empty file and making sure we remove it.
 		dir, err := ioutil.TempDir("", "datapackage_testzip")
 		is.NoErr(err)
 		defer os.Remove(dir)
 		fName := filepath.Join(dir, "pkg.zip")
 
 		// Creating contents and zipping package.
-		descriptorContents := `{"resources": [{ 
-			"name": "res1",
-			"path": "data.csv",
-			"profile": "tabular-data-resource",
-			"schema": {"fields": [{"name":"name", "type":"string"}]}
-		  }]}`
+		descriptorContents := `{"resources": [{
+				"name": "res1",
+				"path": "data.csv",
+				"profile": "tabular-data-resource",
+				"schema": {"fields": [{"name":"name", "type":"string"}]}
+			  }]}`
 		pkg, _ := FromString(descriptorContents, dir, validator.InMemoryLoader())
 		fmt.Println(pkg.Descriptor())
 
@@ -335,6 +335,69 @@ func TestPackage_Zip(t *testing.T) {
           }
         ]
       }
+    }
+  ]
+}`
+		is.Equal(buf.String(), filledDescriptor)
+
+		buf.Reset()
+		data, err := reader.File[1].Open()
+		is.NoErr(err)
+		defer data.Close()
+		io.Copy(&buf, data)
+		is.Equal(buf.String(), string(resContents))
+	})
+	t.Run("ValidDataInSubdir", func(t *testing.T) {
+		is := is.New(t)
+
+		// Creating temporary empty directory and making sure we remove it.
+		dir, err := ioutil.TempDir("", "datapackage_testzip")
+		is.NoErr(err)
+		defer os.Remove(dir)
+
+		dataDir := filepath.Join(dir, "data")
+		is.NoErr(os.Mkdir(dataDir, os.ModePerm))
+		resPath := filepath.Join(dataDir, "data.csv")
+		resContents := []byte("foo\nbar")
+		is.NoErr(ioutil.WriteFile(resPath, resContents, os.ModePerm))
+
+		// Creating contents and zipping package.
+		d := map[string]interface{}{
+			"resources": []interface{}{
+				map[string]interface{}{
+					"name":   "res1",
+					"path":   "./data/data.csv",
+					"format": "csv",
+				},
+			},
+		}
+		pkg, _ := New(d, dir, validator.InMemoryLoader())
+		fmt.Println(pkg.Descriptor())
+
+		fName := filepath.Join(dir, "pkg.zip")
+		is.NoErr(pkg.Zip(fName))
+
+		// Checking zip contents.
+		reader, err := zip.OpenReader(fName)
+		is.NoErr(err)
+		defer reader.Close()
+		is.Equal(2, len(reader.File))
+
+		var buf bytes.Buffer
+		readDescriptor, err := reader.File[0].Open()
+		is.NoErr(err)
+		defer readDescriptor.Close()
+		io.Copy(&buf, readDescriptor)
+
+		filledDescriptor := `{
+  "profile": "data-package",
+  "resources": [
+    {
+      "encoding": "utf-8",
+      "format": "csv",
+      "name": "res1",
+      "path": "./data/data.csv",
+      "profile": "data-resource"
     }
   ]
 }`
