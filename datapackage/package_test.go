@@ -494,7 +494,7 @@ func TestLoad(t *testing.T) {
 		// Writing a file which is in a subdir.
 		f1, err := w.Create("data/foo.csv")
 		is.NoErr(err)
-		_, err = f1.Write([]byte(`foo\nbar`))
+		_, err = f1.Write([]byte(`foo`))
 		is.NoErr(err)
 		is.NoErr(w.Close())
 
@@ -504,6 +504,9 @@ func TestLoad(t *testing.T) {
 		res := pkg.GetResource("res1")
 		is.Equal(res.name, "res1")
 		is.Equal(res.path, []string{"data/foo.csv"})
+		contents, err := res.ReadAll()
+		is.NoErr(err)
+		is.Equal(contents[0], []string{"foo"})
 	})
 	t.Run("Remote", func(t *testing.T) {
 		is := is.New(t)

@@ -301,7 +301,6 @@ func Load(path string, loaders ...validator.RegistryLoader) (*Package, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer os.RemoveAll(dir)
 	fNames, err := unzip(path, dir)
 	if err != nil {
 		return nil, err
