@@ -196,7 +196,7 @@ func (p *Package) Zip(path string) error {
 	return zipFiles(path, dir, fPaths)
 }
 
-func zipFiles(filename string, basepath string, files []string) error {
+func zipFiles(filename string, basePath string, files []string) error {
 	newfile, err := os.Create(filename)
 	if err != nil {
 		return err
@@ -218,7 +218,7 @@ func zipFiles(filename string, basepath string, files []string) error {
 		if err != nil {
 			return err
 		}
-		t := strings.TrimPrefix(file, basepath)[0:]
+		t := strings.TrimPrefix(file, basePath)
 		if strings.HasPrefix(t, "/") {
 			t = t[1:]
 		}
@@ -301,6 +301,7 @@ func Load(path string, loaders ...validator.RegistryLoader) (*Package, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer os.RemoveAll(dir)
 	fNames, err := unzip(path, dir)
 	if err != nil {
 		return nil, err
@@ -349,22 +350,21 @@ func unzip(archive, basePath string) (map[string]struct{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := os.MkdirAll(basePath, 0666); err != nil {
+	if err := os.MkdirAll(basePath, os.ModePerm); err != nil {
 		return nil, err
 	}
 	for _, file := range reader.File {
 		fileNames[file.Name] = struct{}{}
 		path := filepath.Join(basePath, file.Name)
-		if file.FileInfo().IsDir() {
-			os.MkdirAll(path, file.Mode())
-			continue
+		if filepath.Dir(file.Name) != "." {
+			os.MkdirAll(filepath.Join(basePath, filepath.Dir(file.Name)), os.ModePerm)
 		}
 		fileReader, err := file.Open()
 		if err != nil {
 			return nil, err
 		}
 		defer fileReader.Close()
-		targetFile, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
+		targetFile, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, os.ModePerm)
 		if err != nil {
 			return nil, err
 		}

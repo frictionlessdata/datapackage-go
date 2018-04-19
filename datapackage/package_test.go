@@ -36,7 +36,7 @@ var r2Filled = map[string]interface{}{"name": "res2", "path": "bar.csv", "profil
 
 func ExampleLoad_readAll() {
 	dir, _ := ioutil.TempDir("", "datapackage_exampleload")
-	defer os.Remove(dir)
+	defer os.RemoveAll(dir)
 	descriptorPath := filepath.Join(dir, "pkg.json")
 	descriptorContents := `{"resources": [{ 
 		  "name": "res1",
@@ -58,7 +58,7 @@ func ExampleLoad_readAll() {
 
 func ExampleLoad_readRaw() {
 	dir, _ := ioutil.TempDir("", "datapackage_exampleload")
-	defer os.Remove(dir)
+	defer os.RemoveAll(dir)
 	descriptorPath := filepath.Join(dir, "pkg.json")
 	descriptorContents := `{"resources": [{ 
 		  "name": "res1",
@@ -104,7 +104,7 @@ func ExampleLoad_readAllRemote() {
 
 func ExampleLoad_cast() {
 	dir, _ := ioutil.TempDir("", "datapackage_exampleload")
-	defer os.Remove(dir)
+	defer os.RemoveAll(dir)
 	descriptorPath := filepath.Join(dir, "pkg.json")
 	descriptorContents := `{"resources": [{ 
 		  "name": "res1",
@@ -268,7 +268,7 @@ func TestPackage_SaveDescriptor(t *testing.T) {
 		// Creating temporary empty directory and making sure we remove it.
 		dir, err := ioutil.TempDir("", "datapackage_save")
 		is.NoErr(err)
-		defer os.Remove(dir)
+		defer os.RemoveAll(dir)
 		fName := filepath.Join(dir, "pkg.json")
 
 		// Saving package descriptor.
@@ -289,7 +289,7 @@ func TestPackage_Zip(t *testing.T) {
 		// Creating temporary empty file and making sure we remove it.
 		dir, err := ioutil.TempDir("", "datapackage_testzip")
 		is.NoErr(err)
-		defer os.Remove(dir)
+		defer os.RemoveAll(dir)
 		fName := filepath.Join(dir, "pkg.zip")
 
 		// Creating contents and zipping package.
@@ -430,7 +430,7 @@ func TestLoad(t *testing.T) {
 	// Creating temporary empty directory and making sure we remove it.
 	dir, err := ioutil.TempDir("", "datapackage_load")
 	is.NoErr(err)
-	defer os.Remove(dir)
+	defer os.RemoveAll(dir)
 
 	t.Run("Local", func(t *testing.T) {
 		is := is.New(t)
@@ -466,6 +466,44 @@ func TestLoad(t *testing.T) {
 		res := pkg.GetResource("res1")
 		is.Equal(res.name, "res1")
 		is.Equal(res.path, []string{"foo.csv"})
+	})
+	t.Run("LocalZipWithSubdirs", func(t *testing.T) {
+		is := is.New(t)
+		// Creating a zip file.
+		fName := filepath.Join(dir, "pkg.zip")
+		zipFile, err := os.Create(fName)
+		is.NoErr(err)
+		defer zipFile.Close()
+
+		// Adding a datapackage.json file to the zip with proper contents.
+		w := zip.NewWriter(zipFile)
+		f, err := w.Create("datapackage.json")
+		is.NoErr(err)
+		_, err = f.Write([]byte(`{
+			"profile": "data-package",
+			"resources": [
+			  {
+				"encoding": "utf-8",
+				"name": "res1",
+				"path": "data/foo.csv",
+				"profile": "data-resource"
+			  }
+			]
+		  }`))
+		is.NoErr(err)
+		// Writing a file which is in a subdir.
+		f1, err := w.Create("data/foo.csv")
+		is.NoErr(err)
+		_, err = f1.Write([]byte(`foo\nbar`))
+		is.NoErr(err)
+		is.NoErr(w.Close())
+
+		// Load and check package.
+		pkg, err := Load(fName, validator.InMemoryLoader())
+		is.NoErr(err)
+		res := pkg.GetResource("res1")
+		is.Equal(res.name, "res1")
+		is.Equal(res.path, []string{"data/foo.csv"})
 	})
 	t.Run("Remote", func(t *testing.T) {
 		is := is.New(t)
