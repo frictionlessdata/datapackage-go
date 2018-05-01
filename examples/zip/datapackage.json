@@ -4,7 +4,7 @@
       {
         "name": "books",
         "format": "csv",
-        "path": "data.csv",
+        "path": "data/data.csv",
         "profile":"tabular-data-resource",
         "schema": {
           "fields": [
