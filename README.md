@@ -3,7 +3,17 @@
 # datapackage-go
 A Go library for working with [Data Packages](http://specs.frictionlessdata.io/data-package/).
 
-<!-- TOC -->autoauto- [datapackage-go](#datapackage-go)auto    - [Install](#install)auto    - [Main Features](#main-features)auto        - [Loading and validating tabular data package descriptors](#loading-and-validating-tabular-data-package-descriptors)auto        - [Accessing data package resources](#accessing-data-package-resources)auto        - [Loading zip bundles](#loading-zip-bundles)auto        - [Creating a zip bundle with the data package.](#creating-a-zip-bundle-with-the-data-package)auto        - [CSV dialect support](#csv-dialect-support)auto        - [Loading multipart resources](#loading-multipart-resources)auto        - [Loading non-tabular resources](#loading-non-tabular-resources)auto        - [Manipulating data packages programatically](#manipulating-data-packages-programatically)autoauto<!-- /TOC -->
+- [datapackage-go](#datapackage-go)
+     - [Install](#install)
+     - [Main Features](#main-features)
+         - [Loading and validating tabular data package descriptors](#loading-and-validating-tabular-data-package-descriptors)
+         - [Accessing data package resources](#accessing-data-package-resources)
+         - [Loading zip bundles](#loading-zip-bundles)
+         - [Creating a zip bundle with the data package.](#creating-a-zip-bundle-with-the-data-package)
+         - [CSV dialect support](#csv-dialect-support)
+         - [Loading multipart resources](#loading-multipart-resources)
+         - [Loading non-tabular resources](#loading-non-tabular-resources)
+         - [Manipulating data packages programatically](#manipulating-data-packages-programatically)
 
 ## Install
 
