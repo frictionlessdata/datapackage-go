@@ -343,6 +343,25 @@ func (r *Resource) Cast(out interface{}, opts ...csv.CreationOpts) error {
 	return sch.CastTable(tbl, out)
 }
 
+// CastColumn casts a column from tabular resource contents.
+// The out argument must necessarily be the address for a slice. The slice
+// may be nil or previously allocated.
+func (r *Resource) CastColumn(name string, out interface{}, opts ...csv.CreationOpts) error {
+	sch, err := r.GetSchema()
+	if err != nil {
+		return err
+	}
+	tab, err := r.GetTable(opts...)
+	if err != nil {
+		return err
+	}
+	col, err := tab.ReadColumn(name)
+	if err != nil {
+		return err
+	}
+	return sch.CastColumn(col, name, out)
+}
+
 // NewResourceWithDefaultRegistry creates a new Resource from the passed-in descriptor.
 // It uses the default registry to validate the resource descriptor.
 func NewResourceWithDefaultRegistry(d map[string]interface{}) (*Resource, error) {

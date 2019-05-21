@@ -10,8 +10,26 @@ import (
 	"testing"
 
 	"github.com/frictionlessdata/datapackage-go/validator"
+	"github.com/frictionlessdata/tableschema-go/csv"
+	"github.com/frictionlessdata/tableschema-go/schema"
 	"github.com/matryer/is"
 )
+
+func ExampleResource_CastColumn() {
+	resStr := `
+	{
+		"name":    "col",
+		"data":    "name,age\nfoo,42\nbar,84",
+		"format":  "csv",
+		"profile": "tabular-data-resource",
+		"schema": {"fields": [{"name": "name", "type": "string"},{"name": "age", "type": "integer"}]}
+	}`
+	res, _ := NewResourceFromString(resStr, validator.MustInMemoryRegistry())
+	var ages []float64
+	res.CastColumn("age", &ages, csv.LoadHeaders())
+	fmt.Println(ages)
+	// Output: [42 84]
+}
 
 func TestNewResourceWithDefaultRegistry(t *testing.T) {
 	res, _ := NewResourceWithDefaultRegistry(r1)
@@ -152,9 +170,9 @@ func TestNew(t *testing.T) {
 				map[string]interface{}{"name": "foo", "path": "foo.csv", "schema": ts.URL},
 				validator.MustInMemoryRegistry(),
 			)
-			is.NoErr(err)
+			is.NoErr(err) // Resource should be created successfully.
 			sch, err := r.GetSchema()
-			is.Equal(sch.Fields[0].Type, "string")
+			is.Equal(sch.Fields[0].Type, schema.StringType)
 		})
 		t.Run("InvalidRemote", func(t *testing.T) {
 			_, err := NewResource(
@@ -177,7 +195,7 @@ func TestNew(t *testing.T) {
 			)
 			is.NoErr(err)
 			sch, err := r.GetSchema()
-			is.Equal(sch.Fields[0].Type, "string")
+			is.Equal(sch.Fields[0].Type, schema.StringType)
 		})
 		t.Run("InvalidLocal", func(t *testing.T) {
 			_, err := NewResource(
@@ -455,5 +473,67 @@ func TestResource_RawRead(t *testing.T) {
 		contents, err := ioutil.ReadAll(rc)
 		is.NoErr(err)
 		is.Equal(string(contents), "{\"foo\":\"1234\"}")
+	})
+}
+
+func TestResource_ReadColumn(t *testing.T) {
+	resStr := `
+			{
+				"name":    "col",
+				"data":    "name,age\nfoo,42\nbar,84",
+				"format":  "csv",
+				"profile": "tabular-data-resource",
+				"schema": {"fields": [{"name": "name", "type": "string"},{"name": "age", "type": "integer"}]}
+			}`
+	t.Run("Valid", func(t *testing.T) {
+		is := is.New(t)
+		res, err := NewResourceFromString(resStr, validator.MustInMemoryRegistry())
+		is.NoErr(err)
+		var ages []float64
+		is.NoErr(res.CastColumn("age", &ages, csv.LoadHeaders()))
+		is.Equal(float64(42), ages[0])
+		is.Equal(float64(84), ages[1])
+	})
+	t.Run("NoSchema", func(t *testing.T) {
+		res := NewUncheckedResource(map[string]interface{}{})
+		var ages []float64
+		if res.CastColumn("age", &ages) == nil {
+			t.Fatal("want:err got:nil")
+		}
+	})
+	t.Run("NoData", func(t *testing.T) {
+		res := NewUncheckedResource(map[string]interface{}{
+			"schema": map[string]interface{}{},
+		})
+		var ages []float64
+		if res.CastColumn("age", &ages) == nil {
+			t.Fatal("want:err got:nil")
+		}
+	})
+	t.Run("HeaderNotFound", func(t *testing.T) {
+		is := is.New(t)
+		res, err := NewResourceFromString(resStr, validator.MustInMemoryRegistry())
+		is.NoErr(err)
+		var ages []float64
+		if res.CastColumn("foo", &ages) == nil {
+			t.Fatal("want:err got:nil")
+		}
+	})
+	t.Run("FieldNotFound", func(t *testing.T) {
+		is := is.New(t)
+		resStr := `
+			{
+				"name":    "col",
+				"data":    "name,age\nfoo,42\nbar,84",
+				"format":  "csv",
+				"profile": "tabular-data-resource",
+				"schema": {"fields": [{"name": "name", "type": "string"},{"name": "Age", "type": "integer"}]}
+			}`
+		res, err := NewResourceFromString(resStr, validator.MustInMemoryRegistry())
+		is.NoErr(err)
+		var ages []float64
+		if res.CastColumn("age", &ages) == nil {
+			t.Fatal("want:err got:nil")
+		}
 	})
 }
