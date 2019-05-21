@@ -3,21 +3,17 @@
 # datapackage-go
 A Go library for working with [Data Packages](http://specs.frictionlessdata.io/data-package/).
 
-<!-- TOC -->
-
 - [datapackage-go](#datapackage-go)
-    - [Install](#install)
-    - [Main Features](#main-features)
-        - [Loading and validating tabular data package descriptors](#loading-and-validating-tabular-data-package-descriptors)
-        - [Accessing data package resources](#accessing-data-package-resources)
-        - [Loading zip bundles](#loading-zip-bundles)
-        - [Creating a zip bundle with the data package.](#creating-a-zip-bundle-with-the-data-package)
-        - [CSV dialect support](#csv-dialect-support)
-        - [Loading multipart resources](#loading-multipart-resources)
-        - [Loading non-tabular resources](#loading-non-tabular-resources)
-        - [Manipulating data packages programatically](#manipulating-data-packages-programatically)
-
-<!-- /TOC -->
+     - [Install](#install)
+     - [Main Features](#main-features)
+         - [Loading and validating tabular data package descriptors](#loading-and-validating-tabular-data-package-descriptors)
+         - [Accessing data package resources](#accessing-data-package-resources)
+         - [Loading zip bundles](#loading-zip-bundles)
+         - [Creating a zip bundle with the data package.](#creating-a-zip-bundle-with-the-data-package)
+         - [CSV dialect support](#csv-dialect-support)
+         - [Loading multipart resources](#loading-multipart-resources)
+         - [Loading non-tabular resources](#loading-non-tabular-resources)
+         - [Manipulating data packages programatically](#manipulating-data-packages-programatically)
 
 ## Install
 
@@ -95,7 +91,7 @@ fmt.Printf("+v", cities)
 // [{City:london Year:2017 Population:8780000} {City:paris Year:2017 Population:2240000} {City:rome Year:2017 Population:2860000}]
 ```
 
-Finally, if the data is to big to be loaded at once or if you would like to perform line-by-line processing, you could iterate through the resource contents:
+If the data is to big to be loaded at once or if you would like to perform line-by-line processing, you could iterate through the resource contents:
 
 ```go
 iter, _ := resource.Iter(csv.LoadHeaders())
@@ -109,6 +105,16 @@ for iter.Next() {
 // {City:paris Year:2017 Population:2240000}
 // {City:rome Year:2017 Population:2860000}]
 ```
+
+Or you might want to process specific columns, for instance to perform an statical analysis:
+
+```go
+var population []float64
+resource.CastColumn("population", &population, csv.LoadHeaders())
+fmt.Println(ages)
+// Output: [8780000 2240000 2860000]
+```
+
 ### Loading zip bundles
 
 It is very common to store the data in zip bundles containing the descriptor and data files. Those are natively supported by our the [datapackage.Load](https://godoc.org/github.com/frictionlessdata/datapackage-go/datapackage#Load) method. For example, lets say we have the following `package.zip` bundle:
