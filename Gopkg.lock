@@ -5,7 +5,7 @@
   name = "github.com/frictionlessdata/tableschema-go"
   packages = ["csv","schema","table"]
   revision = "f9bf38926664ea64d9749ee7024987a1e967004d"
-  version = "1.4"
+  version = "v1.4"
 
 [[projects]]
   branch = "master"
