@@ -15,11 +15,9 @@ env:
   - GO111MODULE=on
 
 before_install:
-  - go get github.com/tools/godep
-  - go get github.com/mattn/goveralls
-
-install:
+  - curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh  
   - dep ensure
+  - go get github.com/mattn/goveralls
 
 script:
  - $HOME/gopath/bin/goveralls -service=travis-ci -ignore=validator/profile_cache/*.go,examples/remote/*.go,examples/inline/*.go,examples/load_zip/*.go,examples/load/*.go,examples/zip/*.go,examples/build_package/*.go,examples/multipart/*.go
