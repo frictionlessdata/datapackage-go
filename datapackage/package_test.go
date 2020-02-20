@@ -169,9 +169,9 @@ func TestPackage_RemoveResource(t *testing.T) {
 
 		resDesc := pkg.descriptor["resources"].([]interface{})
 		is.Equal(len(resDesc), 1)
-		is.Equal(resDesc[0], r1Filled)
+		is.Equal(resDesc[0], r2Filled)
 		is.Equal(len(pkg.resources), 1)
-		is.Equal(pkg.resources[0].name, "res1")
+		is.Equal(pkg.resources[0].name, "res2")
 	})
 	t.Run("NonExisting", func(t *testing.T) {
 		is := is.New(t)

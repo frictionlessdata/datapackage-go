@@ -106,7 +106,7 @@ func (p *Package) RemoveResource(name string) {
 		}
 	}
 	if index > -1 {
-		newSlice := append(rSlice[:index], rSlice[:index+1]...)
+		newSlice := append(rSlice[:index], rSlice[index+1:]...)
 		r, err := buildResources(newSlice, p.basePath, p.valRegistry)
 		if err != nil {
 			return
