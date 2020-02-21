@@ -1,6 +1,7 @@
 github.com/frictionlessdata/tableschema-go v0.1.5-0.20190521014818-f9bf38926664 h1:IvuZMJ6dH1ye2bWmM8Yla6jj1xIPBR/nZJlm6P4ZSD4=
 github.com/frictionlessdata/tableschema-go v0.1.5-0.20190521014818-f9bf38926664/go.mod h1:OfuE6zbfQdlwx5q9vf5XWXEGJ0LYZcd9ML3zme5rP3k=
 github.com/matryer/is v0.0.0-20170112134659-c0323ceb4e99/go.mod h1:2fLPjFQM9rhQ15aVEtbuwhJinnOqrmgXPNdZsdwlWXA=
+github.com/matryer/is v1.2.0 h1:92UTHpy8CDwaJ08GqLDzhhuixiBUUD1p3AU6PHddz4A=
 github.com/matryer/is v1.2.0/go.mod h1:2fLPjFQM9rhQ15aVEtbuwhJinnOqrmgXPNdZsdwlWXA=
 github.com/santhosh-tekuri/jsonschema v1.2.4 h1:hNhW8e7t+H1vgY+1QeEQpveR6D4+OwKPXCfD2aieJis=
 github.com/santhosh-tekuri/jsonschema v1.2.4/go.mod h1:TEAUOeZSmIxTTuHatJzrvARHiuO9LYd+cIxzgEHCQI4=
