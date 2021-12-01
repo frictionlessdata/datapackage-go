@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bufio"
 	"bytes"
+	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -29,6 +30,13 @@ const (
 	tabularDataPackageProfileName = "tabular-data-package"
 	descriptorFileNameWithinZip   = "datapackage.json"
 )
+
+// Needed to registry gob types.
+// See FromReader for more details.
+func init() {
+	var i json.Number
+	gob.Register(i)
+}
 
 // Package-specific factories: mostly used for making unit testing easier.
 type resourceFactory func(map[string]interface{}) (*Resource, error)
@@ -270,12 +278,15 @@ func New(descriptor map[string]interface{}, basePath string, loaders ...validato
 
 // FromReader creates a data package from an io.Reader.
 func FromReader(r io.Reader, basePath string, loaders ...validator.RegistryLoader) (*Package, error) {
-	b, err := ioutil.ReadAll(bufio.NewReader(r))
-	if err != nil {
-		return nil, err
-	}
+	// JSON doesn't differentiate between floats and integers. When parsed from JSON, large integers
+	// get converted into scientific notation
+	// Issue: https://github.com/frictionlessdata/datapackage-go/issues/28
+	// Example at TestBigNumBytesIsValid.
+	d := json.NewDecoder(bufio.NewReader(r))
+	d.UseNumber()
+
 	var descriptor map[string]interface{}
-	if err := json.Unmarshal(b, &descriptor); err != nil {
+	if err := d.Decode(&descriptor); err != nil {
 		return nil, err
 	}
 	return New(descriptor, basePath, loaders...)
