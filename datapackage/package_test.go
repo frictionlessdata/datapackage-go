@@ -3,6 +3,7 @@ package datapackage
 import (
 	"archive/zip"
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -597,4 +598,31 @@ func TestLoadPackageSchemas(t *testing.T) {
 	is.NoErr(err)
 	is.Equal(pkg.Descriptor()["schema"], schMap)
 	is.Equal(pkg.GetResource("res1").Descriptor()["schema"], schMap)
+}
+
+// Issue https://github.com/frictionlessdata/datapackage-go/issues/28
+func TestBigNumBytesIsValid(t *testing.T) {
+	is := is.New(t)
+	in :=
+		`{
+		"created": "2021-11-25T10:11:24Z",
+		"name": "new_dataset",
+		"profile": "data-package",
+		"resources": [
+		  {
+			"bytes": 17747417,
+			"created": "Thursday, 25-Nov-21 11:09:13 UTC",
+			"description": "",
+			"filename": "excel_no_spaces_digit_sheets.xlsx",
+			"modified": "Thursday, 25-Nov-21 11:09:13 UTC",
+			"name": "732920043605108807",
+			"path": "https://127.0.0.1:9000/minio/bcodmo-submissions-staging/5711471826818791508/files/excel_no_spaces_digit_sheets.xlsx"
+		  }
+		],
+		"title": "New dataset",
+		"updated": "2021-11-25T11:09:13Z"
+	}`
+	pkg, err := FromString(in, ".", validator.InMemoryLoader())
+	is.NoErr(err)
+	is.Equal(pkg.GetResource("732920043605108807").Descriptor()["bytes"], json.Number("17747417"))
 }
