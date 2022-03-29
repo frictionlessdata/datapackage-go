@@ -39,7 +39,7 @@ type localRegistry struct {
 func (local *localRegistry) GetValidator(profile string) (DescriptorValidator, error) {
 	spec, ok := local.registry[profile]
 	if !ok {
-		return nil, fmt.Errorf("Invalid profile:%s", profile)
+		return nil, fmt.Errorf("invalid profile:%s", profile)
 	}
 	b, err := profile_cache.FSByte(!local.inMemoryOnly, spec.Schema)
 	if err != nil {
@@ -78,7 +78,7 @@ type remoteRegistry struct {
 func (remote *remoteRegistry) GetValidator(profile string) (DescriptorValidator, error) {
 	spec, ok := remote.registry[profile]
 	if !ok {
-		return nil, fmt.Errorf("Invalid profile:%s", profile)
+		return nil, fmt.Errorf("invalid profile:%s", profile)
 	}
 	c := jsonschema.NewCompiler()
 	c.AddResource(profile, strings.NewReader(spec.Schema)) // Adding in-memory resource.
@@ -94,12 +94,12 @@ func RemoteRegistryLoader(url string) RegistryLoader {
 	return func() (Registry, error) {
 		resp, err := http.Get(url)
 		if err != nil {
-			return nil, fmt.Errorf("error fetching remote profile cache registry from %s. Err:%q\n", url, err)
+			return nil, fmt.Errorf("error fetching remote profile cache registry from %s: %q", url, err)
 		}
 		defer resp.Body.Close()
 		buf, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			return nil, fmt.Errorf("error reading remote profile cache registry from %s. Err:%q\n", url, err)
+			return nil, fmt.Errorf("error reading remote profile cache registry from %s: %q", url, err)
 		}
 		m, err := unmarshalRegistryContents(buf)
 		if err != nil {
@@ -141,7 +141,7 @@ func FallbackRegistryLoader(loaders ...RegistryLoader) RegistryLoader {
 func unmarshalRegistryContents(buf []byte) (map[string]profileSpec, error) {
 	var specs []profileSpec
 	if err := json.Unmarshal(buf, &specs); err != nil {
-		return nil, fmt.Errorf("error parsing profile cache registry. Contents:\"%s\". Err:\"%q\"\n", string(buf), err)
+		return nil, fmt.Errorf("error parsing profile cache registry. Contents:\"%s\". Err:\"%q\"", string(buf), err)
 	}
 	m := make(map[string]profileSpec, len(specs))
 	for _, s := range specs {

@@ -38,9 +38,6 @@ func init() {
 	gob.Register(i)
 }
 
-// Package-specific factories: mostly used for making unit testing easier.
-type resourceFactory func(map[string]interface{}) (*Resource, error)
-
 // Package represents a https://specs.frictionlessdata.io/data-package/
 type Package struct {
 	resources []*Resource
@@ -226,10 +223,7 @@ func zipFiles(filename string, basePath string, files []string) error {
 		if err != nil {
 			return err
 		}
-		t := strings.TrimPrefix(file, basePath)
-		if strings.HasPrefix(t, "/") {
-			t = t[1:]
-		}
+		t := strings.TrimPrefix(strings.TrimPrefix(file, basePath), "/")
 		if filepath.Dir(t) != "." {
 			header.Name = t
 		}

@@ -456,15 +456,13 @@ func parseData(dataI interface{}, d map[string]interface{}) (interface{}, error)
 func parsePath(pathI interface{}, d map[string]interface{}) ([]string, error) {
 	var returned []string
 	// Parse.
-	switch pathI.(type) {
+	switch path := pathI.(type) {
 	default:
 		return nil, fmt.Errorf("path MUST be a string or an array of strings. Descriptor:%v", d)
 	case string:
-		if p, ok := pathI.(string); ok {
-			returned = append(returned, p)
-		}
+		returned = append(returned, path)
 	case []string:
-		returned = append(returned, pathI.([]string)...)
+		returned = append(returned, path...)
 	case []interface{}:
 		for _, p := range pathI.([]interface{}) {
 			pStr, ok := p.(string)

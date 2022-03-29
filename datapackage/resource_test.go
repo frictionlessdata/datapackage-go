@@ -172,6 +172,7 @@ func TestNew(t *testing.T) {
 			)
 			is.NoErr(err) // Resource should be created successfully.
 			sch, err := r.GetSchema()
+			is.NoErr(err)
 			is.Equal(sch.Fields[0].Type, schema.StringType)
 		})
 		t.Run("InvalidRemote", func(t *testing.T) {
@@ -195,6 +196,7 @@ func TestNew(t *testing.T) {
 			)
 			is.NoErr(err)
 			sch, err := r.GetSchema()
+			is.NoErr(err)
 			is.Equal(sch.Fields[0].Type, schema.StringType)
 		})
 		t.Run("InvalidLocal", func(t *testing.T) {

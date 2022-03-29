@@ -197,11 +197,13 @@ func TestPackage_Resources(t *testing.T) {
 	is := is.New(t)
 	pkg, _ := New(map[string]interface{}{"resources": []interface{}{r1, r2}}, ".", validator.InMemoryLoader())
 	resources := pkg.Resources()
+	is.Equal(len(resources), 2)
 	is.Equal(resources[0].name, "res1")
 	is.Equal(resources[1].name, "res2")
 
 	// Changing the returned slice must not change the package.
 	resources = append(resources, &Resource{name: "foo"})
+	is.Equal(len(resources), 3)
 	is.Equal(len(pkg.ResourceNames()), 2)
 }
 

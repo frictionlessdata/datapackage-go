@@ -55,7 +55,7 @@ func New(profile string, loaders ...RegistryLoader) (DescriptorValidator, error)
 func Validate(descriptor map[string]interface{}, profile string, registry Registry) error {
 	validator, err := registry.GetValidator(profile)
 	if err != nil {
-		return fmt.Errorf("Invalid Schema (Profile:%s):%q", profile, err)
+		return fmt.Errorf("invalid Schema (Profile:%s): %q", profile, err)
 	}
 	return validator.Validate(descriptor)
 }
