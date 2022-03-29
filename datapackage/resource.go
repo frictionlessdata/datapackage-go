@@ -324,7 +324,9 @@ func (r *Resource) GetSchema() (schema.Schema, error) {
 		return schema.Schema{}, err
 	}
 	var s schema.Schema
-	json.Unmarshal(buf, &s)
+	if err := json.Unmarshal(buf, &s); err != nil {
+		return schema.Schema{}, fmt.Errorf("error unmarshaling schema:%w", err)
+	}
 	return s, nil
 }
 

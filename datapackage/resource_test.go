@@ -400,6 +400,22 @@ func TestResource_GetSchema(t *testing.T) {
 			t.Fatal("want:err got:nil")
 		}
 	})
+	t.Run("InvalidSchemaUnmarshal", func(t *testing.T) {
+		is := is.New(t)
+		// fields must be an array.
+		resStr := `
+			{
+				"name":    "iter",
+				"data":    "32",
+				"format":  "csv",
+				"schema": {"fields": [{"name": "Age", "type": "integer"}], "foreignKeys":{}}
+			}`
+		res, err := NewResourceFromString(resStr, validator.MustInMemoryRegistry())
+		is.NoErr(err)
+		if _, err := res.GetSchema(); err == nil {
+			t.Fatal("want:err got:nil")
+		}
+	})
 }
 
 func TestResource_Cast(t *testing.T) {
