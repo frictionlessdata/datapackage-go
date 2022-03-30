@@ -406,7 +406,7 @@ func TestPackage_Zip(t *testing.T) {
 }`
 		is.Equal(buf.String(), filledDescriptor)
 
-		is.Equal("data/data.csv", reader.File[1].Name)
+		is.Equal(filepath.Join("data", "data.csv"), reader.File[1].Name)
 		data, err := reader.File[1].Open()
 		is.NoErr(err)
 		defer data.Close()
