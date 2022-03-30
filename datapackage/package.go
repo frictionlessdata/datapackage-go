@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -317,15 +318,18 @@ func Load(path string, loaders ...validator.RegistryLoader) (*Package, error) {
 }
 
 func getBasepath(p string) string {
+	// If it is a remote-like URL, should not treat slashs in a system OS-dependent way.
 	u, err := url.Parse(p)
-	if err != nil {
-		return filepath.Dir(p)
+	if err == nil && u.IsAbs() {
+		uStr := strings.TrimSuffix(u.String(), "/")
+		uPath := strings.TrimSuffix(u.Path, "/")
+		if uPath == "" {
+			return fmt.Sprintf("%s/", uStr)
+		}
+		return strings.TrimSuffix(uStr, path.Base(u.String()))
 	}
-	if u.Path == "" {
-		u.Path = "/"
-	}
-	u.Path = filepath.Dir(u.Path)
-	return u.String()
+	// It local path.
+	return filepath.Dir(p)
 }
 
 func read(path string) ([]byte, error) {

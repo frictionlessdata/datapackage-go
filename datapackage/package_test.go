@@ -364,12 +364,15 @@ func TestPackage_Zip(t *testing.T) {
 		resContents := []byte("foo\nbar")
 		is.NoErr(ioutil.WriteFile(resPath, resContents, os.ModePerm))
 
+		// Path to subdir.
+		resSubdirPath := filepath.Join("data", "data.csv")
+
 		// Creating contents and zipping package.
 		d := map[string]interface{}{
 			"resources": []interface{}{
 				map[string]interface{}{
 					"name":   "res1",
-					"path":   "./data/data.csv",
+					"path":   resSubdirPath,
 					"format": "csv",
 				},
 			},
@@ -392,21 +395,21 @@ func TestPackage_Zip(t *testing.T) {
 		defer readDescriptor.Close()
 		io.Copy(&buf, readDescriptor)
 
-		filledDescriptor := `{
+		filledDescriptor := fmt.Sprintf(`{
   "profile": "data-package",
   "resources": [
     {
       "encoding": "utf-8",
       "format": "csv",
       "name": "res1",
-      "path": "./data/data.csv",
+      "path": "%s",
       "profile": "data-resource"
     }
   ]
-}`
-		is.Equal(buf.String(), filledDescriptor)
+}`, resSubdirPath)
 
-		is.Equal(filepath.Join("data", "data.csv"), reader.File[1].Name)
+		is.Equal(buf.String(), filledDescriptor)
+		is.Equal(resSubdirPath, reader.File[1].Name)
 		data, err := reader.File[1].Open()
 		is.NoErr(err)
 		defer data.Close()
