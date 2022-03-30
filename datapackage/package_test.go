@@ -37,6 +37,7 @@ var r2Filled = map[string]interface{}{"name": "res2", "path": "bar.csv", "profil
 
 func ExampleLoad_readAll() {
 	dir, _ := ioutil.TempDir("", "datapackage_exampleload")
+	dir = filepath.Clean(dir) // removes possible trailing slashes.
 	defer os.RemoveAll(dir)
 	descriptorPath := filepath.Join(dir, "pkg.json")
 	descriptorContents := `{"resources": [{ 
@@ -59,6 +60,7 @@ func ExampleLoad_readAll() {
 
 func ExampleLoad_readRaw() {
 	dir, _ := ioutil.TempDir("", "datapackage_exampleload")
+	dir = filepath.Clean(dir) // removes possible trailing slashes.
 	defer os.RemoveAll(dir)
 	descriptorPath := filepath.Join(dir, "pkg.json")
 	descriptorContents := `{"resources": [{ 
@@ -286,43 +288,42 @@ func TestPackage_SaveDescriptor(t *testing.T) {
 }
 
 func TestPackage_Zip(t *testing.T) {
-	t.Run("Valid", func(t *testing.T) {
-		is := is.New(t)
+	is := is.New(t)
 
-		// Creating temporary empty file and making sure we remove it.
-		dir, err := ioutil.TempDir("", "datapackage_testzip")
-		is.NoErr(err)
-		defer os.RemoveAll(dir)
-		fName := filepath.Join(dir, "pkg.zip")
+	// Creating temporary empty file and making sure we remove it.
+	dir, err := ioutil.TempDir("", "datapackage_testzip")
+	is.NoErr(err)
+	defer os.RemoveAll(dir)
+	fName := filepath.Join(dir, "pkg.zip")
 
-		// Creating contents and zipping package.
-		descriptorContents := `{"resources": [{
+	// Creating contents and zipping package.
+	descriptorContents := `{"resources": [{
 					"name": "res1",
 					"path": "data.csv",
 					"profile": "tabular-data-resource",
 					"schema": {"fields": [{"name":"name", "type":"string"}]}
 				  }]}`
-		pkg, _ := FromString(descriptorContents, dir, validator.InMemoryLoader())
-		fmt.Println(pkg.Descriptor())
+	pkg, _ := FromString(descriptorContents, dir, validator.InMemoryLoader())
+	fmt.Println(pkg.Descriptor())
 
-		resPath := filepath.Join(dir, "data.csv")
-		resContents := []byte("foo\nbar")
-		ioutil.WriteFile(resPath, resContents, 0666)
-		is.NoErr(pkg.Zip(fName))
+	resPath := filepath.Join(dir, "data.csv")
+	resContents := []byte("foo\nbar")
+	ioutil.WriteFile(resPath, resContents, 0666)
+	is.NoErr(pkg.Zip(fName))
 
-		// Checking zip contents.
-		reader, err := zip.OpenReader(fName)
-		is.NoErr(err)
-		defer reader.Close()
-		is.Equal(2, len(reader.File))
+	// Checking zip contents.
+	reader, err := zip.OpenReader(fName)
+	is.NoErr(err)
+	defer reader.Close()
+	is.Equal(2, len(reader.File))
 
-		var buf bytes.Buffer
-		descriptor, err := reader.File[0].Open()
-		is.NoErr(err)
-		defer descriptor.Close()
-		io.Copy(&buf, descriptor)
+	var buf bytes.Buffer
+	descriptor, err := reader.File[0].Open()
+	is.NoErr(err)
+	defer descriptor.Close()
+	io.Copy(&buf, descriptor)
 
-		filledDescriptor := `{
+	filledDescriptor := `{
   "profile": "data-package",
   "resources": [
     {
@@ -341,61 +342,63 @@ func TestPackage_Zip(t *testing.T) {
     }
   ]
 }`
-		is.Equal(buf.String(), filledDescriptor)
+	is.Equal(buf.String(), filledDescriptor)
 
-		buf.Reset()
-		data, err := reader.File[1].Open()
-		is.NoErr(err)
-		defer data.Close()
-		io.Copy(&buf, data)
-		is.Equal(buf.String(), string(resContents))
-	})
-	t.Run("ValidDataInSubdir", func(t *testing.T) {
-		is := is.New(t)
+	buf.Reset()
+	data, err := reader.File[1].Open()
+	is.NoErr(err)
+	defer data.Close()
+	io.Copy(&buf, data)
+	is.Equal(buf.String(), string(resContents))
+}
 
-		// Creating temporary empty directory and making sure we remove it.
-		dir, err := ioutil.TempDir("", "datapackage_testzip")
-		is.NoErr(err)
-		defer os.Remove(dir)
+func TestValidZip_DataInSubDir(t *testing.T) {
+	is := is.New(t)
 
-		dataDir := filepath.Join(dir, "data")
-		is.NoErr(os.Mkdir(dataDir, os.ModePerm))
-		resPath := filepath.Join(dataDir, "data.csv")
-		resContents := []byte("foo\nbar")
-		is.NoErr(ioutil.WriteFile(resPath, resContents, os.ModePerm))
+	// Creating temporary empty directory and making sure we remove it.
+	dir, err := ioutil.TempDir("", "datapackage_testzip")
+	is.NoErr(err)
+	dir = filepath.Clean(dir) // removes possible trailing slashes.
+	defer os.Remove(dir)
 
-		// Path to subdir.
-		resSubdirPath := filepath.Join("data", "data.csv")
+	dataDir := filepath.Join(dir, "data")
+	is.NoErr(os.Mkdir(dataDir, os.ModePerm))
+	resPath := filepath.Join(dataDir, "data.csv")
+	resContents := []byte("foo\nbar")
+	is.NoErr(ioutil.WriteFile(resPath, resContents, os.ModePerm))
 
-		// Creating contents and zipping package.
-		d := map[string]interface{}{
-			"resources": []interface{}{
-				map[string]interface{}{
-					"name":   "res1",
-					"path":   resSubdirPath,
-					"format": "csv",
-				},
+	// Path to subdir.
+	resSubdirPath := filepath.Join("data", "data.csv")
+
+	// Creating contents and zipping package.
+	d := map[string]interface{}{
+		"resources": []interface{}{
+			map[string]interface{}{
+				"name":   "res1",
+				"path":   resSubdirPath,
+				"format": "csv",
 			},
-		}
-		pkg, _ := New(d, dir, validator.InMemoryLoader())
-		fmt.Println(pkg.Descriptor())
+		},
+	}
+	pkg, _ := New(d, dir, validator.InMemoryLoader())
+	fmt.Println(pkg.Descriptor())
 
-		fName := filepath.Join(dir, "pkg.zip")
-		is.NoErr(pkg.Zip(fName))
+	fName := filepath.Join(dir, "pkg.zip")
+	is.NoErr(pkg.Zip(fName))
 
-		// Checking zip contents.
-		reader, err := zip.OpenReader(fName)
-		is.NoErr(err)
-		defer reader.Close()
-		is.Equal(2, len(reader.File))
+	// Checking zip contents.
+	reader, err := zip.OpenReader(fName)
+	is.NoErr(err)
+	defer reader.Close()
+	is.Equal(2, len(reader.File))
 
-		var buf bytes.Buffer
-		readDescriptor, err := reader.File[0].Open()
-		is.NoErr(err)
-		defer readDescriptor.Close()
-		io.Copy(&buf, readDescriptor)
+	var buf bytes.Buffer
+	readDescriptor, err := reader.File[0].Open()
+	is.NoErr(err)
+	defer readDescriptor.Close()
+	io.Copy(&buf, readDescriptor)
 
-		filledDescriptor := fmt.Sprintf(`{
+	filledDescriptor := fmt.Sprintf(`{
   "profile": "data-package",
   "resources": [
     {
@@ -407,17 +410,16 @@ func TestPackage_Zip(t *testing.T) {
     }
   ]
 }`, resSubdirPath)
-
-		is.Equal(buf.String(), filledDescriptor)
-		is.Equal(resSubdirPath, reader.File[1].Name)
-		data, err := reader.File[1].Open()
-		is.NoErr(err)
-		defer data.Close()
-		buf.Reset()
-		io.Copy(&buf, data)
-		is.Equal(buf.String(), string(resContents))
-	})
+	is.Equal(buf.String(), filledDescriptor)
+	is.Equal(resSubdirPath, reader.File[1].Name)
+	data, err := reader.File[1].Open()
+	is.NoErr(err)
+	defer data.Close()
+	buf.Reset()
+	io.Copy(&buf, data)
+	is.Equal(buf.String(), string(resContents))
 }
+
 func TestFromReader(t *testing.T) {
 	t.Run("ValidJSON", func(t *testing.T) {
 		is := is.New(t)
@@ -436,6 +438,7 @@ func TestLoad(t *testing.T) {
 	// Creating temporary empty directory and making sure we remove it.
 	dir, err := ioutil.TempDir("", "datapackage_load")
 	is.NoErr(err)
+	dir = filepath.Clean(dir) // removes possible trailing slashes.
 	defer os.RemoveAll(dir)
 
 	t.Run("Local", func(t *testing.T) {
@@ -485,17 +488,19 @@ func TestLoad(t *testing.T) {
 		w := zip.NewWriter(zipFile)
 		f, err := w.Create("datapackage.json")
 		is.NoErr(err)
-		_, err = f.Write([]byte(`{
+
+		content := fmt.Sprintf(`{
 			"profile": "data-package",
 			"resources": [
 			  {
 				"encoding": "utf-8",
 				"name": "res1",
-				"path": "data/foo.csv",
+				"path": "data%sfoo.csv",
 				"profile": "data-resource"
 			  }
 			]
-		  }`))
+		  }`, string(os.PathSeparator))
+		_, err = f.Write([]byte(content))
 		is.NoErr(err)
 		// Writing a file which is in a subdir.
 		f1, err := w.Create("data/foo.csv")
