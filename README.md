@@ -1,6 +1,6 @@
 # datapackage-go
 
-![Build Status](https://github.com/frictionlessdata/datapackage-go/actions/workflows/ci.yml/badge.svg)](https://github.com/frictionlessdata/datapackage-go/actions/workflows/ci.yml)
+[![Build Status](https://github.com/frictionlessdata/datapackage-go/actions/workflows/ci.yml/badge.svg)](https://github.com/frictionlessdata/datapackage-go/actions/workflows/ci.yml)
 [![Coverage Status](https://coveralls.io/repos/github/frictionlessdata/datapackage-go/badge.svg?branch=main)](https://coveralls.io/github/frictionlessdata/datapackage-go?branch=main) 
 [![Go Report Card](https://goreportcard.com/badge/github.com/frictionlessdata/datapackage-go)](https://goreportcard.com/report/github.com/frictionlessdata/datapackage-go) 
 [![GoDoc](https://godoc.org/github.com/frictionlessdata/datapackage-go?status.svg)](https://godoc.org/github.com/frictionlessdata/datapackage-go) 
