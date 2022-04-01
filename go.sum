@@ -1,5 +1,5 @@
-github.com/frictionlessdata/tableschema-go v1.1.4-0.20220329230937-c9919c5dfe20 h1:R0kExqUWKs4bKvtXAfbsSYoSOXmO+fXZtNLm4F1GGvY=
-github.com/frictionlessdata/tableschema-go v1.1.4-0.20220329230937-c9919c5dfe20/go.mod h1:B+DhLlwjCf6p6FqVkqpdYyAIy7L8jHCaxa2wFaqpYdc=
+github.com/frictionlessdata/tableschema-go v1.1.4-0.20220401172006-6cc5f3b2411c h1:7S5F4VDf8vkLL3egYLWobmq1FbZb7ig33IbliL7Tr/M=
+github.com/frictionlessdata/tableschema-go v1.1.4-0.20220401172006-6cc5f3b2411c/go.mod h1:B+DhLlwjCf6p6FqVkqpdYyAIy7L8jHCaxa2wFaqpYdc=
 github.com/kr/pretty v0.2.1 h1:Fmg33tUaq4/8ym9TJN1x7sLJnHVwhP33CNkpYV/7rwI=
 github.com/kr/pretty v0.2.1/go.mod h1:ipq/a2n7PKx3OHsz4KJII5eveXtPO4qwEXGdVfWzfnI=
 github.com/kr/pty v1.1.1/go.mod h1:pFQYn66WHrOpPYNljwOMqo10TkYh1fy3cYio2l3bCsQ=
