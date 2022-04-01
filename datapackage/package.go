@@ -297,7 +297,7 @@ func FromString(in string, basePath string, loaders ...validator.RegistryLoader)
 func Load(path string, loaders ...validator.RegistryLoader) (*Package, error) {
 	contents, err := read(path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error reading path contents (%s): %w", path, err)
 	}
 	if !strings.HasSuffix(path, ".zip") {
 		return FromReader(bytes.NewBuffer(contents), getBasepath(path), loaders...)
@@ -305,11 +305,11 @@ func Load(path string, loaders ...validator.RegistryLoader) (*Package, error) {
 	// Special case for zip paths. BasePath will be the temporary directory.
 	dir, err := ioutil.TempDir("", "datapackage_decompress")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error creating temporary directory: %w", err)
 	}
 	fNames, err := unzip(path, dir)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error unzipping path contents (%s): %w", path, err)
 	}
 	if _, ok := fNames[descriptorFileNameWithinZip]; ok {
 		return Load(filepath.Join(dir, descriptorFileNameWithinZip), loaders...)
@@ -336,18 +336,18 @@ func read(path string) ([]byte, error) {
 	if strings.HasPrefix(path, "http") {
 		resp, err := http.Get(path)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error performing HTTP GET(%s): %w", path, err)
 		}
 		defer resp.Body.Close()
 		buf, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error reading response body contents (%s): %w", path, err)
 		}
 		return buf, nil
 	}
 	buf, err := ioutil.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error reading local file contents (%s): %w", path, err)
 	}
 	return buf, nil
 }
@@ -356,29 +356,32 @@ func unzip(archive, basePath string) (map[string]struct{}, error) {
 	fileNames := make(map[string]struct{})
 	reader, err := zip.OpenReader(archive)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error opening zip reader(%s): %w", archive, err)
 	}
 	if err := os.MkdirAll(basePath, os.ModePerm); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error creating directory (%s): %w", basePath, err)
 	}
 	for _, file := range reader.File {
 		fileNames[file.Name] = struct{}{}
 		path := filepath.Join(basePath, file.Name)
 		if filepath.Dir(file.Name) != "." {
-			os.MkdirAll(filepath.Join(basePath, filepath.Dir(file.Name)), os.ModePerm)
+			dotDir := filepath.Join(basePath, filepath.Dir(file.Name))
+			if err := os.MkdirAll(dotDir, os.ModePerm); err != nil {
+				return nil, fmt.Errorf("error creating directory (%s): %w", dotDir, err)
+			}
 		}
 		fileReader, err := file.Open()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error opening internal zip file (%s, %s): %w", archive, file.Name, err)
 		}
 		defer fileReader.Close()
 		targetFile, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, os.ModePerm)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error opening target external zip file (%s, %s): %w", archive, path, err)
 		}
 		defer targetFile.Close()
 		if _, err := io.Copy(targetFile, fileReader); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error filling target external zip file (%s, %s): %w", archive, path, err)
 		}
 	}
 	return fileNames, nil
