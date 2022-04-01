@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -371,18 +372,19 @@ func TestValidZip_DataInSubDir(t *testing.T) {
 	resSubdirPath := filepath.Join("data", "data.csv")
 
 	// Creating contents and zipping package.
-	d := map[string]interface{}{
+	desc := map[string]interface{}{
+		"profile": "data-package",
 		"resources": []interface{}{
 			map[string]interface{}{
-				"name":   "res1",
-				"path":   resSubdirPath,
-				"format": "csv",
+				"name":     "res1",
+				"path":     resSubdirPath,
+				"format":   "csv",
+				"profile":  "data-resource",
+				"encoding": "utf-8",
 			},
 		},
 	}
-	pkg, _ := New(d, dir, validator.InMemoryLoader())
-	fmt.Println(pkg.Descriptor())
-
+	pkg, _ := New(desc, dir, validator.InMemoryLoader())
 	fName := filepath.Join(dir, "pkg.zip")
 	is.NoErr(pkg.Zip(fName))
 
@@ -392,32 +394,31 @@ func TestValidZip_DataInSubDir(t *testing.T) {
 	defer reader.Close()
 	is.Equal(2, len(reader.File))
 
-	var buf bytes.Buffer
-	readDescriptor, err := reader.File[0].Open()
-	is.NoErr(err)
-	defer readDescriptor.Close()
-	io.Copy(&buf, readDescriptor)
+	// Check descriptor. Doing that by not comparing JSON contents
+	// because backslash "\" is a reserved chat and ends up being
+	// failing in windows.
+	func() {
+		f, err := reader.File[0].Open()
+		is.NoErr(err)
+		defer f.Close()
 
-	filledDescriptor := fmt.Sprintf(`{
-  "profile": "data-package",
-  "resources": [
-    {
-      "encoding": "utf-8",
-      "format": "csv",
-      "name": "res1",
-      "path": "%s",
-      "profile": "data-resource"
-    }
-  ]
-}`, resSubdirPath)
-	is.Equal(buf.String(), filledDescriptor)
-	is.Equal(resSubdirPath, reader.File[1].Name)
-	data, err := reader.File[1].Open()
-	is.NoErr(err)
-	defer data.Close()
-	buf.Reset()
-	io.Copy(&buf, data)
-	is.Equal(buf.String(), string(resContents))
+		b, err := ioutil.ReadAll(f)
+		is.NoErr(err)
+		var readDesc map[string]interface{}
+		is.NoErr(json.Unmarshal(b, &readDesc))
+		is.True(reflect.DeepEqual(readDesc, desc))
+	}()
+
+	// Check data contents.
+	func() {
+		f, err := reader.File[1].Open()
+		is.NoErr(err)
+		defer f.Close()
+
+		b, err := ioutil.ReadAll(f)
+		is.NoErr(err)
+		is.Equal(b, resContents)
+	}()
 }
 
 func TestFromReader(t *testing.T) {
