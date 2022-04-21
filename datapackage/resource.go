@@ -274,13 +274,14 @@ func loadContents(basePath string, path []string, f func(string) func() (io.Read
 	return newMultiReadCloser(rcs), nil
 }
 
-func joinPaths(basePath, path string) string {
-	u, err := url.Parse(basePath)
-	if err != nil {
-		return filepath.Join(basePath, path)
+func joinPaths(basePath, part string) string {
+	if isRemotePath(basePath) {
+		u, _ := url.Parse(basePath)
+		u.Path = path.Join(u.Path, part)
+		return u.String()
 	}
-	u.Path = filepath.Join(u.EscapedPath(), path)
-	return u.String()
+
+	return filepath.Join(basePath, part)
 }
 
 // ReadAll reads all rows from the table and return it as strings.

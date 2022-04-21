@@ -15,6 +15,7 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strings"
 
 	"github.com/frictionlessdata/datapackage-go/clone"
@@ -318,9 +319,12 @@ func Load(path string, loaders ...validator.RegistryLoader) (*Package, error) {
 }
 
 func getBasepath(p string) string {
-	// If it is a remote-like URL, should not treat slashs in a system OS-dependent way.
-	u, err := url.Parse(p)
-	if err == nil && u.IsAbs() {
+	if isRemotePath(p) {
+		// If it is a remote-like URL, should not treat slashs in a system OS-dependent way.
+		u, err := url.Parse(p)
+		if err != nil {
+			panic(err)
+		}
 		uStr := strings.TrimSuffix(u.String(), "/")
 		uPath := strings.TrimSuffix(u.Path, "/")
 		if uPath == "" {
@@ -328,8 +332,12 @@ func getBasepath(p string) string {
 		}
 		return strings.TrimSuffix(uStr, path.Base(u.String()))
 	}
-	// It local path.
 	return filepath.Dir(p)
+}
+
+func isRemotePath(x string) bool {
+	m, e := regexp.MatchString(`^\w+://`, x)
+	return e == nil && m
 }
 
 func read(path string) ([]byte, error) {
