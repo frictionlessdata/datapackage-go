@@ -181,7 +181,7 @@ func (p *Package) Zip(path string) error {
 	fPaths := []string{descriptorPath}
 	for _, r := range p.resources {
 		for _, p := range r.path {
-			c, err := read(filepath.Join(r.basePath, p))
+			_, c, err := read(filepath.Join(r.basePath, p))
 			if err != nil {
 				return err
 			}
@@ -293,7 +293,7 @@ func FromString(in string, basePath string, loaders ...validator.RegistryLoader)
 // Load the data package descriptor from the specified URL or file path.
 // If path has the ".zip" extension, it will be saved in local filesystem and decompressed before loading.
 func Load(path string, loaders ...validator.RegistryLoader) (*Package, error) {
-	contents, err := read(path)
+	localPath, contents, err := read(path)
 	if err != nil {
 		return nil, fmt.Errorf("error reading path contents (%s): %w", path, err)
 	}
@@ -305,34 +305,47 @@ func Load(path string, loaders ...validator.RegistryLoader) (*Package, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error creating temporary directory: %w", err)
 	}
-	fNames, err := unzip(path, dir)
+	fNames, err := unzip(localPath, dir)
 	if err != nil {
-		return nil, fmt.Errorf("error unzipping path contents (%s): %w", path, err)
+		return nil, fmt.Errorf("error unzipping path contents (%s): %w", localPath, err)
 	}
 	if _, ok := fNames[descriptorFileNameWithinZip]; ok {
 		return Load(filepath.Join(dir, descriptorFileNameWithinZip), loaders...)
 	}
-	return nil, fmt.Errorf("zip file %s does not contain a file called %s", path, descriptorFileNameWithinZip)
+	return nil, fmt.Errorf("zip file %s does not contain a file called %s", localPath, descriptorFileNameWithinZip)
 }
 
-func read(path string) ([]byte, error) {
+func read(path string) (string, []byte, error) {
 	if strings.HasPrefix(path, "http") {
 		resp, err := http.Get(path)
 		if err != nil {
-			return nil, fmt.Errorf("error performing HTTP GET(%s): %w", path, err)
+			return "", nil, fmt.Errorf("error performing HTTP GET(%s): %w", path, err)
 		}
 		defer resp.Body.Close()
 		buf, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			return nil, fmt.Errorf("error reading response body contents (%s): %w", path, err)
+			return "", nil, fmt.Errorf("error reading response body contents (%s): %w", path, err)
 		}
-		return buf, nil
+		// Making sure zip file is materialized.
+		// This makes debugging easier.
+		localPath, err := func() (string, error) {
+			f, err := ioutil.TempFile("", "*.zip")
+			if err != nil {
+				return "", fmt.Errorf("error creating temp file to save zip (dir:%s): %w", os.TempDir(), err)
+			}
+			defer f.Close()
+			if _, err := f.Write(buf); err != nil {
+				return f.Name(), fmt.Errorf("error writing temp file to save zip (%s): %w", f.Name(), err)
+			}
+			return f.Name(), nil
+		}()
+		return localPath, buf, err
 	}
 	buf, err := ioutil.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("error reading local file contents (%s): %w", path, err)
+		return "", nil, fmt.Errorf("error reading local file contents (%s): %w", path, err)
 	}
-	return buf, nil
+	return path, buf, nil
 }
 
 func unzip(archive, basePath string) (map[string]struct{}, error) {

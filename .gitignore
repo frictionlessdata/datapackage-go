@@ -14,3 +14,5 @@
 .glide/
 
 covprofile
+
+.DS_Store
