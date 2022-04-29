@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -456,26 +457,11 @@ func TestLoad(t *testing.T) {
 	})
 	t.Run("LocalZip", func(t *testing.T) {
 		is := is.New(t)
-		// Creating a zip file.
-		fName := filepath.Join(dir, "pkg.zip")
-		zipFile, err := os.Create(fName)
+		pkg, err := Load("test_package.zip", validator.InMemoryLoader())
 		is.NoErr(err)
-		defer zipFile.Close()
-
-		// Adding a datapackage.json file to the zip with proper contents.
-		w := zip.NewWriter(zipFile)
-		f, err := w.Create("datapackage.json")
-		is.NoErr(err)
-		_, err = f.Write([]byte(r1Str))
-		is.NoErr(err)
-		is.NoErr(w.Close())
-
-		// Load and check package.
-		pkg, err := Load(fName, validator.InMemoryLoader())
-		is.NoErr(err)
-		res := pkg.GetResource("res1")
-		is.Equal(res.name, "res1")
-		is.Equal(res.path, []string{"foo.csv"})
+		res := pkg.GetResource("books")
+		is.Equal(res.name, "books")
+		is.Equal(res.path, []string{"data.csv"})
 	})
 	t.Run("LocalZipWithSubdirs", func(t *testing.T) {
 		is := is.New(t)
@@ -548,6 +534,26 @@ func TestLoad(t *testing.T) {
 				is.Equal(res.basePath, ts.URL+"/")
 			})
 		}
+	})
+	t.Run("RemoteZip", func(t *testing.T) {
+		is := is.New(t)
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			f, err := os.Open("test_package.zip")
+			is.NoErr(err)
+			defer f.Close()
+
+			stat, err := f.Stat()
+			is.NoErr(err)
+			w.Header().Set("Content-Type", "application/octet-stream")
+			w.Header().Set("Content-Length", strconv.FormatInt(stat.Size(), 10)) //Get file size as a string
+			io.Copy(w, f)
+		}))
+		defer ts.Close()
+		pkg, err := Load(ts.URL+"/package.zip", validator.InMemoryLoader())
+		is.NoErr(err)
+		res := pkg.GetResource("books")
+		is.Equal(res.name, "books")
+		is.Equal(res.path, []string{"data.csv"})
 	})
 	t.Run("InvalidPath", func(t *testing.T) {
 		_, err := Load("foobar", validator.InMemoryLoader())
