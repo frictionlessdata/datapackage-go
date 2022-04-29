@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"os"
 	"path"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -272,15 +271,6 @@ func loadContents(basePath string, path []string, f func(string) func() (io.Read
 		}
 	}
 	return newMultiReadCloser(rcs), nil
-}
-
-func joinPaths(basePath, path string) string {
-	u, err := url.Parse(basePath)
-	if err != nil {
-		return filepath.Join(basePath, path)
-	}
-	u.Path = filepath.Join(u.EscapedPath(), path)
-	return u.String()
 }
 
 // ReadAll reads all rows from the table and return it as strings.
