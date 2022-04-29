@@ -10,9 +10,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -315,21 +313,6 @@ func Load(path string, loaders ...validator.RegistryLoader) (*Package, error) {
 		return Load(filepath.Join(dir, descriptorFileNameWithinZip), loaders...)
 	}
 	return nil, fmt.Errorf("zip file %s does not contain a file called %s", path, descriptorFileNameWithinZip)
-}
-
-func getBasepath(p string) string {
-	// If it is a remote-like URL, should not treat slashs in a system OS-dependent way.
-	u, err := url.Parse(p)
-	if err == nil && u.IsAbs() {
-		uStr := strings.TrimSuffix(u.String(), "/")
-		uPath := strings.TrimSuffix(u.Path, "/")
-		if uPath == "" {
-			return fmt.Sprintf("%s/", uStr)
-		}
-		return strings.TrimSuffix(uStr, path.Base(u.String()))
-	}
-	// It local path.
-	return filepath.Dir(p)
 }
 
 func read(path string) ([]byte, error) {

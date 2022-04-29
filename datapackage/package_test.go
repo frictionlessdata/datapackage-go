@@ -490,21 +490,23 @@ func TestLoad(t *testing.T) {
 		f, err := w.Create("datapackage.json")
 		is.NoErr(err)
 
+		osPath := filepath.Join("data", "foo.csv")
+		is.NoErr(err)
 		content := fmt.Sprintf(`{
 			"profile": "data-package",
 			"resources": [
 			  {
 				"encoding": "utf-8",
 				"name": "res1",
-				"path": "data%sfoo.csv",
+				"path": "%s",
 				"profile": "data-resource"
 			  }
 			]
-		  }`, string(os.PathSeparator))
+		  }`, osPath)
 		_, err = f.Write([]byte(content))
 		is.NoErr(err)
 		// Writing a file which is in a subdir.
-		f1, err := w.Create("data/foo.csv")
+		f1, err := w.Create(osPath)
 		is.NoErr(err)
 		_, err = f1.Write([]byte(`foo`))
 		is.NoErr(err)
@@ -515,7 +517,7 @@ func TestLoad(t *testing.T) {
 		is.NoErr(err)
 		res := pkg.GetResource("res1")
 		is.Equal(res.name, "res1")
-		is.Equal(res.path, []string{"data/foo.csv"})
+		is.Equal(res.path, []string{osPath})
 		contents, err := res.ReadAll()
 		is.NoErr(err)
 		is.Equal(contents[0], []string{"foo"})
