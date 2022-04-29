@@ -491,6 +491,7 @@ func TestLoad(t *testing.T) {
 		is.NoErr(err)
 
 		osPath := filepath.Join("data", "foo.csv")
+		jsonPath, _ := json.Marshal(osPath)
 		is.NoErr(err)
 		content := fmt.Sprintf(`{
 			"profile": "data-package",
@@ -498,11 +499,11 @@ func TestLoad(t *testing.T) {
 			  {
 				"encoding": "utf-8",
 				"name": "res1",
-				"path": "%s",
+				"path": %s,
 				"profile": "data-resource"
 			  }
 			]
-		  }`, osPath)
+		  }`, jsonPath)
 		_, err = f.Write([]byte(content))
 		is.NoErr(err)
 		// Writing a file which is in a subdir.
