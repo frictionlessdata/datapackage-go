@@ -339,7 +339,7 @@ func read(path string) (string, []byte, error) {
 			}
 			return f.Name(), nil
 		}()
-		return localPath, buf, nil
+		return localPath, buf, err
 	}
 	buf, err := ioutil.ReadFile(path)
 	if err != nil {
