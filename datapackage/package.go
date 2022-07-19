@@ -222,6 +222,9 @@ func zipFiles(filename string, basePath string, files []string) error {
 		if err != nil {
 			return err
 		}
+		// default is Store 0 (no compression!)
+		// see http://golang.org/pkg/archive/zip/#pkg-constants
+		header.Method = zip.Deflate
 		t := strings.TrimPrefix(strings.TrimPrefix(file, basePath), "/")
 		if filepath.Dir(t) != "." {
 			header.Name = t
